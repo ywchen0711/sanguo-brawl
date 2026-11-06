@@ -6,7 +6,7 @@ import { RenderPass } from '../lib/addons/RenderPass.js';
 import { UnrealBloomPass } from '../lib/addons/UnrealBloomPass.js';
 import { OutputPass } from '../lib/addons/OutputPass.js';
 import { ShaderPass } from '../lib/addons/ShaderPass.js';
-import { sheetFor, ANIMS, FW, FH } from './art.js';
+import { sheetFor, ANIMS, FW, FH, OY } from './art.js';
 export { THREE };
 export const PX = 1 / 16;
 
@@ -80,7 +80,8 @@ function sheetTex(L) {
   if (!t) { t = new THREE.CanvasTexture(S.canvas); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace; texCache.set(S, t); }
   return { S, t };
 }
-const planeGeo = new THREE.PlaneGeometry(FW * PX, FH * PX); planeGeo.translate(0, (FH * PX) / 2 - 6 * PX, 0);   // the feet (6 px above the frame's bottom) at the origin
+const SPX = PX / 2;   // people are drawn at twice the pixels of the scenery
+const planeGeo = new THREE.PlaneGeometry(FW * SPX, FH * SPX); planeGeo.translate(0, (FH * SPX) / 2 - (FH - OY) * SPX, 0);   // the feet at the origin
 const blobTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 2, 32, 32, 30); g.addColorStop(0, 'rgba(0,0,0,0.55)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); const t = new THREE.CanvasTexture(c); return t; })();
 const blobGeo = new THREE.PlaneGeometry(1, 1); blobGeo.rotateX(-Math.PI / 2);
 export class Body {

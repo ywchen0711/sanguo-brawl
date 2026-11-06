@@ -3,10 +3,10 @@
 const SK = { fair: '#f2c8a0', warm: '#e8b48a', tan: '#d49a6a', dark: '#b07a52', red: '#b8442e', pale: '#f6d8b8' };
 export const LOOKS = {
   // ---- the four heroes
-  liubei:   { key: 'liubei', skin: SK.fair, hair: '#1e1610', hat: 'crown', hatC: '#2a3a5a', robe: '#3e7a4a', robe2: '#e8d8a0', pants: '#2a3a2a', boots: '#3a2a20', belt: '#c89a3a', beltGold: 1, beard: 'goatee', cape: '#e6d6a8', wpn: 'sword', wpn2: 'sword', sleeveLong: 1, skirt: 0.62 },
+  liubei:   { key: 'liubei', skin: SK.fair, hair: '#1e1610', hat: 'crown', hatC: '#2a3a5a', robe: '#3e7a4a', robe2: '#e8d8a0', pants: '#2a3a2a', boots: '#3a2a20', belt: '#c89a3a', beltGold: 1, beard: 'goatee', cape: '#e6d6a8', wpn: 'sword', wpn2: 'sword', sleeveLong: 1, skirt: 0.62, sash: '#c89a3a' },
   guanyu:   { key: 'guanyu', skin: SK.red, hair: '#141010', hat: 'band', hatC: '#2a6a3a', robe: '#2e7a44', robe2: '#d8b850', armor: '#3a8a50', pants: '#203a26', boots: '#2a2018', belt: '#c8a040', beltGold: 1, beard: 'long', beardC: '#121010', cape: '#2a5a34', wpn: 'glaive', size: 1.1, fierce: 1, brow: 1.3, skirt: 0.6 },
   zhangfei: { key: 'zhangfei', skin: SK.tan, hair: '#100c0a', hat: 'band', hatC: '#1a1a1a', robe: '#2a2a34', robe2: '#6a5a8a', armor: '#3a3448', pants: '#1a1a22', boots: '#1a1412', belt: '#8a6a3a', beard: 'bushy', beardC: '#0c0a0a', wpn: 'snake', wpnC: '#1e1e1e', size: 1.12, fat: 1, fierce: 1, brow: 1.6, eyeW: 1, skirt: 0.5 },
-  zhaoyun:  { key: 'zhaoyun', skin: SK.pale, hair: '#1a1410', hat: 'plume', hatC: '#c8ccd8', hatC2: '#e8e8f0', robe: '#e8eaf0', robe2: '#4a7ac8', armor: '#d6dae4', pants: '#3a4a6a', boots: '#2a3040', belt: '#4a6aa8', cape: '#f2f2f6', wpn: 'spear', wpnC: '#e0e0e6', skirt: 0.5 },
+  zhaoyun:  { key: 'zhaoyun', skin: SK.pale, hair: '#1a1410', hat: 'plume', hatC: '#c8ccd8', hatC2: '#e8e8f0', robe: '#e8eaf0', robe2: '#4a7ac8', armor: '#d6dae4', pants: '#3a4a6a', boots: '#2a3040', belt: '#4a6aa8', cape: '#f2f2f6', wpn: 'spear', wpnC: '#e0e0e6', skirt: 0.5, sash: '#4a7ac8', eyeC: '#3a2a20' },
   // ---- people met on the road (masters, companions)
   huangzhong: { key: 'huangzhong', skin: SK.warm, hair: '#e8e4dc', hat: 'helm', hatC: '#a88a3a', robe: '#a86a2a', armor: '#b8923a', beard: 'long', beardC: '#eeeae2', wpn: 'saber', pants: '#4a3a20', skirt: 0.5 },
   dianwei:  { key: 'dianwei', skin: SK.dark, hair: '#18120e', hat: 'band', hatC: '#8a2a1a', robe: '#4a2a1a', armor: '#5a3a26', beard: 'stubble', bare: 1, wpn: 'jis', wpn2: 'jis', size: 1.15, fat: 1, fierce: 1, brow: 1.6, skirt: 0.45 },
@@ -40,7 +40,7 @@ const TYPES = {
   nanman:  (r) => ({ skin: SK.dark, hair: '#1a1410', hat: pick(['feathers', 'band'], r()), hatC: '#5a3a1a', hatC2: '#e0a030', robe: '#6a4a1a', bare: 1, bareLeg: 1, beard: 'none', wpn: pick(['spear', 'club'], r()), shield: r() < 0.4 ? '#8a5a2a' : null, skirt: 0.35, paint: '#e8e0d0' }),
   monk:    (r) => ({ skin: SK.warm, hair: '#1a1410', hat: 'bald', robe: '#c87a2a', robe2: '#8a3a1a', beard: 'none', wpn: 'staff', skirt: 0.75 }),
   villager:(r) => ({ skin: pick([SK.fair, SK.warm, SK.tan], r()), hair: pick(['#1a1410', '#3a2a1a', '#8a847a'], r()), hat: pick(['bun', 'bun', 'hood', 'band'], r()), hatC: pick(['#4a6a8a', '#8a4a3a', '#6a6a4a'], r()), robe: pick(['#6a8aa8', '#a86a5a', '#8aa86a', '#c8b07a', '#9a7aa8'], r()), robe2: pick(['#e8dcc0', '#4a3a2a'], r()), beard: pick(['none', 'none', 'goatee', 'mustache'], r()), sleeveLong: 1, skirt: pick([0.6, 0.85], r()) }),
-  lady:    (r) => ({ skin: SK.pale, hair: '#1a1410', hat: 'bun', hatC: '#e0b040', robe: pick(['#d87a8a', '#8ab0d8', '#e0a878', '#b898d0'], r()), robe2: '#f4ecd8', beard: 'none', sleeveLong: 1, skirt: 0.95, longHair: 1, size: 0.94 }),
+  lady:    (r) => ({ skin: SK.pale, hair: '#1a1410', hat: 'bun', hatC: '#e0b040', robe: pick(['#d87a8a', '#8ab0d8', '#e0a878', '#b898d0'], r()), robe2: '#f4ecd8', beard: 'none', sleeveLong: 1, skirt: 0.95, longHair: 1, size: 0.94, lashes: 1, lips: '#c04a50', blush: 1 }),
 };
 // a seeded random, so the same soldier always looks the same
 export function rnd(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s >>>= 0; s ^= s >> 17; s ^= s << 5; s >>>= 0; return (s % 100000) / 100000; }; }

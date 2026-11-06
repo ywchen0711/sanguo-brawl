@@ -5,6 +5,6 @@ import { stillCanvas, ANIMS } from './js/art.js';
 import { LOOKS, lookOf } from './js/looks.js';
 const o = document.getElementById('o'), anims = (new URLSearchParams(location.search).get('a') || 'stand,idle,walk,jab,kick,slash').split(',');
 const names = (new URLSearchParams(location.search).get('n') || Object.keys(LOOKS).join(',') + ',bandit,turban,soldier,guard,archer,nanman,villager,lady,t_brute,t_mage,pirate').split(',');
-for (const n of names) for (const a of anims) { const fr = ANIMS[a].length > 1 ? 1 : 0; const c = stillCanvas(LOOKS[n] || lookOf(n, 3), a, Math.min(fr, ANIMS[a].length - 1), +(new URLSearchParams(location.search).get("s") || 2)); c.title = n + ' ' + a; o.appendChild(c); }
+for (const n of names) for (const a of anims) { const fr = ANIMS[a].length > 1 ? 1 : 0; const c0 = stillCanvas(LOOKS[n] || lookOf(n, 3), a, Math.min(fr, ANIMS[a].length - 1)), sc = +(new URLSearchParams(location.search).get("s") || 2), c = document.createElement("canvas"); c.width = c0.width * sc; c.height = c0.height * sc; const cx = c.getContext("2d"); cx.imageSmoothingEnabled = false; cx.drawImage(c0, 0, 0, c.width, c.height); c.title = n + ' ' + a; o.appendChild(c); }
 window.SB = 1;
 </script>
