@@ -56,5 +56,5 @@ export const MOVES = {
 // the techniques a hero can learn, and where
 export const TECHS = ['whirl', 'hundred', 'rising', 'swallow', 'headbutt', 'quake', 'kiball', 'heal', 'diamond', 'ghost', 'chain', 'backspear', 'twinblade', 'dragon', 'roar', 'sevenfold', 'arrow', 'twinji', 'tigercharge', 'bellrush', 'fire', 'thunder', 'halberd', 'bodyslam', 'mist'];
 // every move's frame times: the animation's own, unless the move says otherwise
-import { ANIMS } from './art.js';
+import { ANIMS } from './art.js?v=6';
 export function durs(m) { return m.dur || ANIMS[m.anim].map((f) => f.t); }

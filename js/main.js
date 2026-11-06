@@ -1,16 +1,16 @@
 // 亂世豪俠傳: the game. A hero walks the road of the late Han from town to town, fighting whoever stands in the
 // way, eating to grow strong, learning techniques from the great fighters of the age and putting four of them in
 // hand. Everything the player has is in H (saved to localStorage); everything on the road is in the World.
-import { createView, THREE, prefillLooks } from './render.js';
-import { Stage, D } from './stage.js';
-import { World } from './fight.js';
-import { AI } from './ai.js';
-import { UI, esc } from './ui.js';
-import { audio } from './audio.js';
-import { LOOKS, lookOf } from './looks.js';
-import { portrait, stillCanvas } from './art.js';
-import { MOVES, TECHS } from './moves.js';
-import { HEROES, ALLY_OF, FOES, BOSSES, MASTERS, FOOD, ITEMS, GEAR, SLOT_N, ZONES, QUEST, RUMORS } from './data.js';
+import { createView, THREE, prefillLooks } from './render.js?v=6';
+import { Stage, D } from './stage.js?v=6';
+import { World } from './fight.js?v=6';
+import { AI } from './ai.js?v=6';
+import { UI, esc } from './ui.js?v=6';
+import { audio } from './audio.js?v=6';
+import { LOOKS, lookOf } from './looks.js?v=6';
+import { portrait, stillCanvas } from './art.js?v=6';
+import { MOVES, TECHS } from './moves.js?v=6';
+import { HEROES, ALLY_OF, FOES, BOSSES, MASTERS, FOOD, ITEMS, GEAR, SLOT_N, ZONES, QUEST, RUMORS } from './data.js?v=6';
 
 const V = createView(document.getElementById('view')), stage = new Stage(V), ui = new UI();
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), pick = (a) => a[Math.floor(Math.random() * a.length)], rand = (a, b) => a + Math.random() * (b - a);

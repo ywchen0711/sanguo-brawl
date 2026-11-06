@@ -96,3 +96,10 @@ js/ui.js      選單、對話、提示
 js/audio.js   合成的音效與音樂
 js/main.js    遊戲流程：地區、商店、道場、魔王、存檔、選單、操作、鏡頭、介面
 ```
+## 改版時
+
+所有模組的 import 都帶著同一個版本號（目前 ?v=6），index.html 的 main.js 和 style.css 也是。改了任何檔案就一起換新號碼，瀏覽器才不會用到舊檔案：
+
+```
+python -c "import re,glob;v='7';[open(f,'w',encoding='utf-8').write(re.sub(r'(\.(?:js|css))\?v=\d+',r'\1?v='+v,open(f,encoding='utf-8').read())) for f in glob.glob('js/*.js')+['index.html']]"
+```

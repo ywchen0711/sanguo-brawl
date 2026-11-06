@@ -6,7 +6,7 @@ import { RenderPass } from '../lib/addons/RenderPass.js';
 import { UnrealBloomPass } from '../lib/addons/UnrealBloomPass.js';
 import { OutputPass } from '../lib/addons/OutputPass.js';
 import { ShaderPass } from '../lib/addons/ShaderPass.js';
-import { frameCanvas, ANIMS, ANIM_NAMES, FW, FH, OY, PPU } from './art.js';
+import { frameCanvas, ANIMS, ANIM_NAMES, FW, FH, OY, PPU } from './art.js?v=6';
 export { THREE };
 export const PX = 1 / 16;
 
