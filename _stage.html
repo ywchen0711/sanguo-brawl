@@ -1,0 +1,17 @@
+<!doctype html><meta charset="utf-8"><style>html,body{margin:0;height:100%;overflow:hidden;background:#000}canvas{width:100%;height:100%;display:block}</style>
+<canvas id="v"></canvas>
+<script type="module">
+import { createView, Body } from './js/render.js';
+import { Stage, D } from './js/stage.js';
+import { LOOKS, lookOf } from './js/looks.js';
+const q = new URLSearchParams(location.search), mood = q.get('m') || 'day';
+const V = createView(document.getElementById('v')), st = new Stage(V);
+const Z = q.get('z') === 'field' ? { len: 60, ground: 'grass', mood, trees: ['broad', 'pine'], back: [{ k: 'fence', x0: 10, x1: 20, z: -0.8 }, { k: 'rock', x: 24 }, { k: 'tent', x: 30, col: '#d8c060' }, { k: 'flag', x: 27, t: '黃' }, { k: 'fire', x: 33, z: -0.8 }] }
+  : { len: 60, kind: 'town', ground: 'grass', mood, back: [{ k: 'house', x: 8, w: 7, sign: '客棧', shop: 'inn', curtain: '#3a5a8a' }, { k: 'house', x: 17, w: 6, sign: '飯館', shop: 'food', curtain: '#a83a2a', roof: '#3a4a3a' }, { k: 'house', x: 25.5, w: 6.5, sign: '兵器鋪', shop: 'arms', curtain: '#4a4a4a', wall: 'boards', col: '#8a6a4a' }, { k: 'well', x: 31 }, { k: 'house', x: 37, w: 7, sign: '道場', shop: 'dojo', roof: '#7a2a20' }] };
+st.build(Z);
+const ppl = [['liubei', 12, 2.5, 1], ['guanyu', 14, 3.2, 1], ['zhangfei', 10.5, 1.6, 1], ['zhaoyun', 16.5, 2.2, -1], ['bandit', 19, 3, -1], ['turban', 20.5, 1.8, -1], ['lubu', 22, 3.6, -1]];
+const anims = ['idle', 'walk', 'jab', 'kick', 'slash', 'thrust', 'idle'];
+ppl.forEach(([n, x, z, f], i) => { const b = new Body(V.scene, LOOKS[n] || lookOf(n, i)); b.frame(anims[i], 1, f); b.place(x, 0, z); });
+const cx = 16; V.camera.position.set(cx, +(q.get("cy") || 9.5), D + +(q.get("cz") || 21)); V.camera.lookAt(cx, 1.6, D * 0.3); V.tilt(+(q.get("f") || 0.45), 0.2, 2.6);
+let t = 0; const loop = () => { t += 0.016; st.update(0.016, t, cx); V.render(); requestAnimationFrame(loop); }; loop(); setTimeout(() => { window.SB = 1; }, 800);
+</script>

@@ -1,0 +1,10 @@
+<!doctype html><meta charset="utf-8"><body style="background:#6a7a5a;margin:0">
+<div id="o" style="display:flex;flex-wrap:wrap;gap:2px"></div>
+<script type="module">
+import { stillCanvas, ANIMS } from './js/art.js';
+import { LOOKS, lookOf } from './js/looks.js';
+const o = document.getElementById('o'), anims = (new URLSearchParams(location.search).get('a') || 'stand,idle,walk,jab,kick,slash').split(',');
+const names = (new URLSearchParams(location.search).get('n') || Object.keys(LOOKS).join(',') + ',bandit,turban,soldier,guard,archer,nanman,villager,lady,t_brute,t_mage,pirate').split(',');
+for (const n of names) for (const a of anims) { const fr = ANIMS[a].length > 1 ? 1 : 0; const c = stillCanvas(LOOKS[n] || lookOf(n, 3), a, Math.min(fr, ANIMS[a].length - 1), +(new URLSearchParams(location.search).get("s") || 2)); c.title = n + ' ' + a; o.appendChild(c); }
+window.SB = 1;
+</script>

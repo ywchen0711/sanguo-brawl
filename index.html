@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#000000">
+<title>亂世豪俠傳 Brawlers of the Three Kingdoms</title>
+<meta name="description" content="HD-2D 的三國動作 RPG：自由闖蕩東漢末年的大路，拳腳兵器連段、抓人摔人、撿東西砸人，向各地高手學招式，裝上四個絕招。">
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+<canvas id="view"></canvas>
+<div id="nums"></div>
+
+<div id="hud">
+  <div id="hme">
+    <div id="hname"></div>
+    <div class="bar hp" id="hhp"><i></i><span id="hhpn"></span></div>
+    <div class="bar sp" id="hsp"><i></i></div>
+    <div class="bar ex" id="hexp"><i></i></div>
+    <div id="hally"><span id="hallyn"></span><div class="bar hp small" id="hallyhp"><i></i></div></div>
+  </div>
+  <div id="hright"><div id="hzone"></div><div id="hgold"></div></div>
+  <div id="foes"></div>
+  <div id="combo"></div>
+  <div id="slots"><div class="slot"><b>U</b><span class="sn"></span><span class="sc"></span></div><div class="slot"><b>I</b><span class="sn"></span><span class="sc"></span></div><div class="slot"><b>O</b><span class="sn"></span><span class="sc"></span></div><div class="slot"><b>P</b><span class="sn"></span><span class="sc"></span></div></div>
+  <div id="prompt"></div>
+</div>
+
+<div id="title"><div class="tlogo">亂世豪俠傳</div><div class="tsub">BRAWLERS OF THE THREE KINGDOMS</div></div>
+<div id="ui"></div>
+<div id="dialog"></div>
+<div id="toasts"></div>
+<div id="fade"></div>
+
+<div id="touch">
+  <div id="tpad"><div id="tknob"></div></div>
+  <div class="tbtns">
+    <button data-k="J" class="tb big a">攻</button>
+    <button data-k="K" class="tb big b">腳</button>
+    <button data-k="jump" class="tb c">跳</button>
+    <button data-k="guard" class="tb d">防</button>
+    <button data-k="E" class="tb e">E</button>
+    <button data-k="s0" class="tb s s0">1</button>
+    <button data-k="s1" class="tb s s1">2</button>
+    <button data-k="s2" class="tb s s2">3</button>
+    <button data-k="s3" class="tb s s3">4</button>
+    <button data-k="menu" class="tb m">☰</button>
+  </div>
+</div>
+<script type="module" src="js/main.js?v=1"></script>
+</body>
+</html>
