@@ -67,7 +67,7 @@ class Buf {
         const n = span < 2 ? 0.35 : (dd - dl) / span;              // +1 at the lit edge, -1 at the shaded edge
         const lam = Math.max(0, n * 0.74 + Math.sqrt(Math.max(0, 1 - n * n)) * 0.58);
         if (m.k === 'metal') { f = n > 0.4 && n < 0.68 && span > 3 ? 1.6 : band(0.38 + lam * 0.95, MBANDS, x, y, true); }
-        else if (m.k === 'soft') f = band(0.8 + lam * 0.34, BANDS, x, y, false);
+        else if (m.k === 'soft') f = n < -0.6 && span > 6 ? 0.88 : n > 0.75 && span > 6 ? 1.05 : 1;   // a face: lit, with one band of shade at its far edge
         else { f = 0.46 + lam * 0.66; if (n < -0.82 && span > 6) f += 0.12; f = band(f, BANDS, x, y, true); }
       }
       if (m.pat === 'scale') { const row = Math.floor(y / 5), xx = x + (row % 2) * 3, yy = y % 5; if (yy === 4) f *= 0.72; else if (xx % 6 === 0) f *= 0.84; else if (yy === 1 && xx % 6 === 3) f *= 1.3; else if (yy === 0) f *= 1.08; }
@@ -219,7 +219,7 @@ function drawHead(B, L, c, k, P, ang) {
   if (L.longHair) { B.next('vol', 'strand'); { const cc = H(-2, -8); B.meta[B.part].cx = cc[0]; B.meta[B.part].cy = cc[1]; } poly([[-4, -1], [-7.6, 3], [-8.4, 13], [-6.6, 19], [-3.6, 17], [-2.6, 6]], hair); }
   if (L.hat === 'plume' || L.hat === 'helm' || L.hat === 'feathers') { /* drawn with the helm */ }
   // skull, jaw, nose
-  B.next('soft'); B.meta[B.part].noShade = true; ell(0, 0, 6.8, 7.2, skin); poly([[-4, 2], [6.5, 0.4], [7, 3.6], [6.4, 6.2], [4.4, 8.2], [1.6, 8.8], [-1.6, 7.4], [-4, 5]], skin); poly([[6.2, 0.8], [7.6, 3.8], [6.4, 4.3]], skin);
+  B.next('soft'); B.meta[B.part].noShade = true; ell(0, 0, 6.8, 7.2, skin); poly([[-4, 2], [6.6, 0.6], [6.9, 3.4], [6.3, 5.6], [4.8, 7.6], [2.4, 8.5], [-0.6, 7.8], [-3.6, 5]], skin); poly([[6.4, 1.2], [7.5, 3.7], [6.5, 4.2]], skin);
   // ear
   B.next(); ell(-2.8, 2, 1.6, 2.3, shade(skin, 0.92)); flat(B); seg(-2.6, 1, -2.4, 3, 0.7, shade(skin, 0.66));
   // hair over the top and back of the head, bangs over the brow, the sheen of it
@@ -231,25 +231,27 @@ function drawHead(B, L, c, k, P, ang) {
     flat(B); seg(-4.6, -5, 1.6, -6.4, 1.2, sheen); seg(-6, -2.8, -4.8, -4.6, 1, sheen);
   } else { flat(B); seg(-3, -5.4, 1, -6.4, 1.3, shade(skin, 1.25)); }
   // eyes, brows, mouth: the face is turned three-quarters toward us
-  du = -1.7; flat(B); seg(5.6, 2.2, 6.4, 3.9, 0.8, shade(skin, 0.8));
-  const eyeC = L.eyeC || '#2a1a14', lid = '#1a1010';
+  // small faces read the way the classic pixel games draw them: dark slits for eyes, no whites, a short brow,
+  // the nose and mouth only hinted by a shadow, and the shape of the face left to the light
+  du = -1.7;
+  const eyeC = L.eyeC || '#2a1a14', lid = '#1c1210', sk2 = shade(skin, 0.86), sk3 = shade(skin, 0.7);
+  if (!L.lashes) { flat(B); B.set(...H(6.6, 3.2), pack(sk2)); }      // beside the nose
+  flat(B); seg(6.1, 4.4, 6.9, 4.4, 0.5, sk3);                                              // under the nose
   flat(B);
-  if (P.eye === 'closed') { seg(1.6, 1.4, 5, 1.6, 0.9, lid); seg(5.8, 1.3, 7.1, 1.4, 0.8, lid); }
-  else if (P.eye === 'hurt') { seg(1.8, 0.2, 4.6, 1.2, 0.9, lid); seg(1.8, 2.2, 4.6, 1.2, 0.9, lid); seg(5.9, 0.6, 7, 1.2, 0.8, lid); }
+  if (P.eye === 'closed') { seg(3, 1.7, 4.6, 1.7, 0.55, lid); seg(6.5, 1.6, 7.1, 1.6, 0.45, lid); }
+  else if (P.eye === 'hurt') { seg(3, 1, 4.6, 1.7, 0.55, lid); seg(3, 2.4, 4.6, 1.7, 0.55, lid); seg(6.4, 1.3, 7, 1.7, 0.45, lid); }
   else {
-    ell(3.2, 1.3, 1.9, 1.15, '#f4efe6'); ell(3.8, 1.35, 1, 1.3, eyeC); flat(B); ell(3.85, 1.95, 0.7, 0.55, mix(eyeC, '#b07a50', 0.45)); flat(B); B.disc(...H(3.85, 1.3), 0.45 * k, '#0a0606'); ell(6.5, 1.2, 0.95, 0.9, '#f4efe6'); ell(6.7, 1.25, 0.6, 1, eyeC);
-    flat(B); B.disc(...H(3.6, 0.7), 0.5 * k, '#ffffff');
-    flat(B); seg(1.2, 0.2, 5.2, 0, 0.75, lid); seg(1.2, 0.2, 0.8, 0.8, 0.6, lid); seg(5.7, 0.2, 7.3, 0.3, 0.65, lid);
-    if (L.lashes) seg(0.6, -0.2, 1.4, 0.4, 0.8, lid);
+    ell(3.9, 1.6, 0.55, 0.85, lid); flat(B); B.set(...H(3.75, 1.05), pack(mix(eyeC, '#ffffff', 0.5)));
+    flat(B); ell(6.75, 1.55, 0.3, 0.7, lid);
+    if (L.lashes) { flat(B); B.set(...H(4.6, 0.9), pack(lid)); B.set(...H(3.2, 0.9), pack(lid)); }
   }
-  flat(B); const bw = (L.brow || (L.fierce ? 1.2 : 0.7)) * 1.05, bcol = shade(hair, 0.9);
-  if (L.fierce) { seg(0.8, -3, 4.8, -1.5, bw, bcol); seg(5.8, -1.6, 7.3, -2.2, bw * 0.8, bcol); } else { seg(1, -2.2, 4.8, -2.7, bw, bcol); seg(5.8, -2.6, 7.2, -2.3, bw * 0.8, bcol); }
+  flat(B); const bw = L.fierce ? 0.85 + ((L.brow || 1.2) - 1.2) * 0.5 : 0.55, bcol = shade(hair, 0.85);
+  if (L.fierce) { seg(2.4, -1.2, 4.9, -0.2, bw, bcol); seg(6.2, -0.2, 7.2, -0.7, bw * 0.8, bcol); } else { seg(2.6, -0.5, 4.8, -0.8, bw, bcol); seg(6.2, -0.7, 7.1, -0.5, bw * 0.8, bcol); }
   flat(B);
-  if (P.mouth) { ell(5.6, 5.9, 1.3, 1.1, '#5a1a1a'); flat(B); seg(4.8, 5.1, 6.4, 5.1, 0.6, '#efe8e0'); }
-  else { seg(4.6, 5.7, 6.5, 5.5, 0.75, L.lips ? shade(L.lips, 0.75) : shade(skin, 0.62)); flat(B); seg(5, 6.4, 6.1, 6.3, 0.6, L.lips || shade(skin, 0.86)); }
-  flat(B); B.disc(...H(6.4, 4.1), 0.4 * k, shade(skin, 0.6));
-  if (L.blush) { flat(B); ell(4, 3.6, 1.4, 0.7, mix(skin, '#ff7a7a', 0.3)); }
-  if (L.paint) { flat(B); seg(1, 3, 6.4, 3, 0.9, L.paint); seg(1.4, 4.6, 5.6, 4.6, 0.7, L.paint); }
+  if (P.mouth) ell(5.9, 6, 0.75, 0.65, '#4a1818');
+  else if (!L.beard || L.beard === 'none' || L.beard === 'stubble') seg(5.3, 6, 6.3, 5.9, 0.5, L.lips ? shade(L.lips, 0.9) : sk3);
+  if (L.blush) { flat(B); ell(4.4, 3.7, 0.9, 0.4, mix(skin, '#ff7a7a', 0.22)); }
+  if (L.paint) { flat(B); seg(2.6, 3, 6.4, 3, 0.7, L.paint); seg(2.8, 4.4, 5.8, 4.4, 0.6, L.paint); }
   }
   if (P.beardOnly) du = -1.7;
   // the beard
@@ -257,7 +259,7 @@ function drawHead(B, L, c, k, P, ang) {
   if (L.beard === 'long' && P.beardOnly) {
     B.next('vol', 'fold'); poly([[-1.8, 4], [0.4, 4.4], [1.6, 6.2], [6.2, 5.8], [6.9, 8.2], [5.8, 16], [4.2, 24], [2.6, 26.4], [1.2, 18], [-0.4, 10], [-2, 7]], bc);
     flat(B); seg(3.6, 9, 3.4, 20, 0.6, bl); seg(5.2, 9, 4.6, 17, 0.6, bl);
-    B.next(); poly([[4.4, 4.6], [7.2, 4.4], [7.6, 5.4], [6, 5.3], [4.6, 7.6], [3.9, 5.4]], bc);
+    flat(B); poly([[4.4, 4.6], [7.2, 4.4], [7.6, 5.4], [6, 5.3], [4.6, 7.6], [3.9, 5.4]], bc);
   }
   if (P.beardOnly) return;
   if (L.beard === 'bushy') {
@@ -266,8 +268,8 @@ function drawHead(B, L, c, k, P, ang) {
     poly([[4.4, 4.4], [7.6, 3.8], [9.6, 2.4], [8.2, 4.8], [5.4, 6]], bc);
     flat(B); seg(2, 7.6, 3.8, 10, 0.6, bl); seg(-1, 7, 0, 9.4, 0.6, bl);
   }
-  if (L.beard === 'goatee') { B.next(); poly([[4.4, 4.6], [7.1, 4.4], [7.4, 5.2], [6, 5.2], [4.8, 6.6]], bc); poly([[3, 7.6], [5.8, 7.8], [4.4, 12.6]], bc); }
-  if (L.beard === 'mustache') { B.next(); poly([[4.4, 4.6], [7.2, 4.4], [7.5, 5.3], [6, 5.2], [4.6, 7]], bc); }
+  if (L.beard === 'goatee') { flat(B); poly([[4.8, 4.9], [7, 4.7], [7.3, 5.2], [6.1, 5.1], [5.2, 5.9]], bc); poly([[3, 7.6], [5.8, 7.8], [4.4, 12.6]], bc); }
+  if (L.beard === 'mustache') { flat(B); poly([[4.6, 4.9], [7.1, 4.7], [7.4, 5.3], [6.1, 5.2], [5, 6.4]], bc); }
   if (L.beard === 'stubble') { flat(B); const sc = mix(skin, '#3a3030', 0.28); for (const [u, v] of [[1, 6.8], [2.6, 7.8], [4.4, 7.6], [5.8, 6.6], [3.2, 6.2], [0, 5.4], [5, 5.8], [2, 8.4]]) B.disc(...H(u, v), 0.5 * k, sc); }
   du = 0;
   // what is on the head

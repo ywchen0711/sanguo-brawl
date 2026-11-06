@@ -40,7 +40,7 @@ const TYPES = {
   nanman:  (r) => ({ skin: SK.dark, hair: '#1a1410', hat: pick(['feathers', 'band'], r()), hatC: '#5a3a1a', hatC2: '#e0a030', robe: '#6a4a1a', bare: 1, bareLeg: 1, beard: 'none', wpn: pick(['spear', 'club'], r()), shield: r() < 0.4 ? '#8a5a2a' : null, skirt: 0.35, paint: '#e8e0d0' }),
   monk:    (r) => ({ skin: SK.warm, hair: '#1a1410', hat: 'bald', robe: '#c87a2a', robe2: '#8a3a1a', beard: 'none', wpn: 'staff', skirt: 0.75 }),
   villager:(r) => ({ skin: pick([SK.fair, SK.warm, SK.tan], r()), hair: pick(['#1a1410', '#3a2a1a', '#8a847a'], r()), hat: pick(['bun', 'bun', 'hood', 'band'], r()), hatC: pick(['#4a6a8a', '#8a4a3a', '#6a6a4a'], r()), robe: pick(['#6a8aa8', '#a86a5a', '#8aa86a', '#c8b07a', '#9a7aa8'], r()), robe2: pick(['#e8dcc0', '#4a3a2a'], r()), beard: pick(['none', 'none', 'goatee', 'mustache'], r()), sleeveLong: 1, skirt: pick([0.6, 0.85], r()) }),
-  lady:    (r) => ({ skin: SK.pale, hair: '#1a1410', hat: 'bun', hatC: '#e0b040', robe: pick(['#d87a8a', '#8ab0d8', '#e0a878', '#b898d0'], r()), robe2: '#f4ecd8', beard: 'none', sleeveLong: 1, skirt: 0.95, longHair: 1, size: 0.94, lashes: 1, lips: '#c04a50', blush: 1 }),
+  lady:    (r) => ({ skin: SK.pale, hair: '#1a1410', hat: 'bun', hatC: '#e0b040', robe: pick(['#d87a8a', '#8ab0d8', '#e0a878', '#b898d0'], r()), robe2: '#f4ecd8', beard: 'none', sleeveLong: 1, skirt: 0.95, longHair: 1, size: 0.94, lashes: 1, lips: '#c8847a', blush: 1 }),
 };
 // a seeded random, so the same soldier always looks the same
 export function rnd(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s >>>= 0; s ^= s >> 17; s ^= s << 5; s >>>= 0; return (s % 100000) / 100000; }; }
