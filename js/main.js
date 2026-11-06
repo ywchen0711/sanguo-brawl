@@ -127,9 +127,10 @@ const G = {
   control(dt) {
     const h = this.hero, I = h.intent, K = input;
     let mx = (K.right ? 1 : 0) - (K.left ? 1 : 0), mz = (K.down ? 1 : 0) - (K.up ? 1 : 0);
-    if (K.stick) { mx = Math.abs(K.stick.x) > 0.3 ? Math.sign(K.stick.x) * Math.min(1, Math.abs(K.stick.x) * 1.4) : 0; mz = Math.abs(K.stick.y) > 0.3 ? Math.sign(K.stick.y) * Math.min(1, Math.abs(K.stick.y) * 1.4) : 0; if (Math.abs(K.stick.x) > 0.92) K.run = true; }
+    const S = K.stick || K.gstick;
+    if (S) { mx = Math.abs(S.x) > 0.3 ? Math.sign(S.x) * Math.min(1, Math.abs(S.x) * 1.4) : 0; mz = Math.abs(S.y) > 0.3 ? Math.sign(S.y) * Math.min(1, Math.abs(S.y) * 1.4) : 0; if (!S.dig && Math.abs(S.x) > 0.92) K.run = true; }
     I.mx = mx; I.mz = mz; I.run = K.run && mx !== 0; if (!mx) K.run = false;
-    I.guard = !!K.guard;
+    I.guard = !!(K.guard || K.gguard);
     for (const a of K.take()) {
       if (a === 'E' && this.interact()) continue;
       if (a === 'Q') { this.useItem(); continue; }
@@ -500,6 +501,46 @@ function setupTouch() {
   });
 }
 
+// gamepad (standard mapping: Xbox / PlayStation / Switch Pro): polled every frame
+// X / □ attack · B / ○ kick · A / × jump · Y / △ door, talk, pick up · RB / R1 or RT / R2 guard
+// hold LB / L1 + X A B Y: the four techniques · LT / L2 medicine · Start menu · Back / Select map
+const PAD = { b: [], t: {}, dir: null, dirT: 0 };
+function pollPad(now) {
+  const gp = [...(navigator.getGamepads?.() || [])].find((g) => g && g.connected);
+  if (!gp) { if (PAD.on) { PAD.on = false; input.gstick = null; input.gguard = false; } return; }
+  if (!PAD.on) { PAD.on = true; PAD.b = gp.buttons.map((b) => b.pressed); return; }
+  const B = (i) => !!gp.buttons[i]?.pressed, hit = (i) => B(i) && !PAD.b[i];
+  const ax = gp.axes[0] || 0, ay = gp.axes[1] || 0, dx = (B(15) ? 1 : 0) - (B(14) ? 1 : 0), dy = (B(13) ? 1 : 0) - (B(12) ? 1 : 0);
+  if (gp.buttons.some((b, i) => b.pressed && !PAD.b[i])) audio.init();
+  if (ui.busy) {
+    input.gstick = null; input.gguard = false;
+    // menus: stick or d-pad steps with a repeat, A / × to choose, B / ○ to go back
+    const sx = dx || (Math.abs(ax) > 0.6 ? Math.sign(ax) : 0), sy = dy || (Math.abs(ay) > 0.6 ? Math.sign(ay) : 0);
+    const d = sy ? (sy < 0 ? 'up' : 'down') : sx ? (sx < 0 ? 'left' : 'right') : null;
+    if (d !== PAD.dir) { PAD.dir = d; PAD.dirT = now + 320; if (d) ui.key(d); } else if (d && now > PAD.dirT) { PAD.dirT = now + 110; ui.key(d); }
+    if (hit(0)) ui.key('ok'); if (hit(1) || hit(9)) ui.key('back');
+  } else if (G.mode === 'play') {
+    PAD.dir = null;
+    const stick = Math.hypot(ax, ay) > 0.25;
+    if (stick) input.gstick = { x: ax, y: ay };
+    else if (dx || dy) {
+      if (dx && dx !== PAD.ldx) { if (now - (PAD.tap[dx] || 0) < 260) input.run = true; PAD.tap[dx] = now; }
+      input.gstick = { x: dx, y: dy, dig: true };
+    } else { if (input.gstick) input.run = false; input.gstick = null; }
+    PAD.ldx = dx;
+    input.gguard = B(5) || B(7);
+    const sh = B(4), face = [2, 0, 1, 3];
+    if (sh) face.forEach((bi, si) => { if (hit(bi)) input.q.push('s' + si); });
+    else { if (hit(2)) input.q.push('J'); if (hit(1)) input.q.push('K'); if (hit(0)) input.q.push('jump'); if (hit(3)) input.q.push('E'); }
+    if (hit(6)) input.q.push('Q');
+    if (hit(9)) G.menu();
+    if (hit(8)) { G.busy = true; G.map().finally(() => (G.busy = false)); }
+  }
+  PAD.b = gp.buttons.map((b) => b.pressed);
+}
+PAD.tap = {};
+addEventListener('gamepadconnected', () => ui.toast('手把已連接：X 攻擊　B 踢　A 跳　Y 互動　RB 防禦　LB＋XABY 招式'));
+
 // ---------------------------------------------------------------- title, choosing a hero, help
 async function help() {
   await ui.sheet(`<div class="ptitle">操作說明</div><table class="keys">
@@ -511,7 +552,8 @@ async function help() {
   <tr><td>U I O P / 1 2 3 4</td><td>使出裝備的四個招式（要用氣）</td></tr>
   <tr><td>E</td><td>進門、說話、撿起東西</td></tr>
   <tr><td>Q</td><td>吃藥</td></tr>
-  <tr><td>Esc / Tab</td><td>選單（狀態、招式、裝備、地圖）・M：地圖</td></tr></table>
+  <tr><td>Esc / Tab</td><td>選單（狀態、招式、裝備、地圖）・M：地圖</td></tr>
+  <tr><td>手把</td><td>X／□ 攻擊・B／○ 踢・A／× 跳・Y／△ 互動・RB／RT 防禦<br>按住 LB＋X A B Y：四個招式・LT 吃藥・Start 選單・Back 地圖</td></tr></table>
   <div class="stx">・走向站不穩（頭上冒星星）的敵人就會抓住他：J 用膝蓋撞，K 把他扔出去砸別人。<br>・在飯館吃東西會回復體力，有些菜吃了能力會永久提升。<br>・各地道場的高手打贏了，就肯教你招式。打倒強敵也能領悟他的絕招。<br>・在客棧住一晚可以存檔；每到一個新地方也會自動存檔。</div>`, 'helpsheet');
 }
 let titleScene = null;
@@ -543,6 +585,7 @@ async function opening(id) {
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now; G.t += dt;
+  pollPad(now);
   if (titleScene) { W.update(dt, null); G.camX = 25 + Math.sin(G.t * 0.15) * 3; V.camera.position.set(G.camX, 8.6, D + 19); V.camera.lookAt(G.camX, 2.2, D * 0.3); V.tilt(0.42, 0.18, 2.8); stage.update(dt, G.t, G.camX); }
   else if (G.mode === 'play' || G.mode === 'dead') G.update(dt);
   V.render();

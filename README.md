@@ -22,6 +22,23 @@ An HD-2D action RPG set in the late Han. Roam the road from town to town, brawl 
 
 手機和平板：左下角是搖桿，右下角是攻、腳、跳、防、E 和四個招式鍵。
 
+**手把**（Xbox、PlayStation、Switch Pro 都可以，插上後按任一鍵）：
+
+| 按鈕 | 動作 |
+|---|---|
+| 左搖桿 / 十字鍵 | 走路（搖桿推到底或十字鍵連按兩下：奔跑） |
+| X / □ | 攻擊 |
+| B / ○ | 踢腿 |
+| A / × | 跳 |
+| Y / △ | 進門、說話、撿起東西 |
+| RB / R1 或 RT / R2（按住） | 防禦 |
+| 按住 LB / L1 ＋ X A B Y | 四個招式 |
+| LT / L2 | 吃藥 |
+| Start / Options | 選單 |
+| Back / Select | 地圖 |
+
+選單裡：十字鍵或搖桿移動，A / × 確定，B / ○ 返回。
+
 ## 遊戲內容
 
 - **四位英雄**：
