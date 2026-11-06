@@ -2,10 +2,10 @@
 // lands. Actors move on the ground plane (x along the road, z in depth) and jump in y. A move is played frame by
 // frame (moves.js); its hits are checked on the frame they belong to. Thrown people and things, projectiles,
 // sparks and the screen's shake and freeze all live here too.
-import { THREE, Body, PX, cutout, cutoutMesh } from './render.js?v=9';
-import { MOVES, durs } from './moves.js?v=9';
-import { ANIMS } from './art.js?v=9';
-import { D } from './stage.js?v=9';
+import { THREE, Body, PX, cutout, cutoutMesh } from './render.js?v=10';
+import { MOVES, durs } from './moves.js?v=10';
+import { ANIMS } from './art.js?v=10';
+import { D } from './stage.js?v=10';
 
 const G = 34;                         // gravity
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -270,7 +270,7 @@ export class World {
   }
   // a hit from attacker a: everyone it reaches in front
   strike(a, h, m) {
-    const last = m.last && m.loop && a.loopI === m.loop - 1 ? m.last : null, hh = last ? { ...h, ...last } : h, s = a.size;
+    const last = m.last && m.loop && a.loopI === m.loop - 1 ? m.last : null, hh = last ? { ...h, ...last } : h, s = a.size, rr = m.wpn ? a.reach || 1 : 1;
     let any = false;
     for (const t of this.actors) {
       if (t === a || !t.alive || !a.hostile(t) || t.inv > 0) continue;
@@ -279,7 +279,7 @@ export class World {
       else if (t.state === 'held' && t.heldBy !== a) { /* a held man can be hit by his captor's friends */ }
       const key = h.each ? t.id + ':' + a.loopI : t.id; if (a.hitList.has(key)) continue;
       const dx = (t.x - a.x) * a.f, ts = t.size;
-      if (dx < hh.range[0] * s - 0.3 * ts || dx > hh.range[1] * s + 0.35 * ts) continue;
+      if (dx < hh.range[0] * s - 0.3 * ts || dx > hh.range[1] * s * rr + 0.35 * ts) continue;
       if (Math.abs(t.z - a.z) > (hh.dz || 0.6) * (0.85 + s * 0.15)) continue;
       const y0 = a.y + hh.h[0] * s, y1 = a.y + hh.h[1] * s; if (t.y + HEIGHT * ts < y0 || t.y > y1) continue;
       a.hitList.add(key); any = true;

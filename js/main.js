@@ -1,21 +1,22 @@
 // 亂世豪俠傳: the game. A hero walks the road of the late Han from town to town, fighting whoever stands in the
 // way, eating to grow strong, learning techniques from the great fighters of the age and putting four of them in
 // hand. Everything the player has is in H (saved to localStorage); everything on the road is in the World.
-import { createView, THREE, prefillLooks } from './render.js?v=9';
-import { Stage, D } from './stage.js?v=9';
-import { World } from './fight.js?v=9';
-import { AI } from './ai.js?v=9';
-import { UI, esc } from './ui.js?v=9';
-import { audio } from './audio.js?v=9';
-import { LOOKS, lookOf } from './looks.js?v=9';
-import { portrait, stillCanvas } from './art.js?v=9';
-import { MOVES, TECHS } from './moves.js?v=9';
-import { HEROES, ALLY_OF, FOES, BOSSES, MASTERS, FOOD, ITEMS, GEAR, SLOT_N, ZONES, QUEST, RUMORS } from './data.js?v=9';
+import { createView, THREE, prefillLooks } from './render.js?v=10';
+import { Stage, D } from './stage.js?v=10';
+import { World } from './fight.js?v=10';
+import { AI } from './ai.js?v=10';
+import { UI, esc } from './ui.js?v=10';
+import { audio } from './audio.js?v=10';
+import { LOOKS, lookOf } from './looks.js?v=10';
+import { portrait, stillCanvas } from './art.js?v=10';
+import { MOVES, TECHS } from './moves.js?v=10';
+import { HEROES, ALLY_OF, FOES, BOSSES, MASTERS, FOOD, ITEMS, GEAR, WEAPONS, SLOT_N, ZONES, QUEST, RUMORS } from './data.js?v=10';
 
 const V = createView(document.getElementById('view')), stage = new Stage(V), ui = new UI();
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), pick = (a) => a[Math.floor(Math.random() * a.length)], rand = (a, b) => a + Math.random() * (b - a);
 const SAVE = 'sanguobrawl.save.v1';
 const BLADES = ['sword', 'saber', 'spear', 'snake', 'glaive', 'halberd', 'axe', 'club', 'knife', 'staff', 'jis', 'mace'];
+const reachN = (w) => ((w.reach || 1) >= 1.2 ? '距離：長' : (w.reach || 1) < 1 ? '距離：短' : '距離：中');
 const STAT_N = { hp: '體力', sp: '氣', str: '力', kick: '腳', tech: '技', def: '防', spd: '速' };
 const TECH_PRICE = { whirl: 300, hundred: 400, rising: 420, swallow: 500, headbutt: 450, quake: 650, kiball: 350, heal: 520, diamond: 700, ghost: 800, chain: 300, backspear: 600, arrow: 800, twinji: 900, tigercharge: 900, bellrush: 700, fire: 900, thunder: 1500, mist: 600, halberd: 3000, bodyslam: 2500, twinblade: 600, dragon: 800, roar: 700, sevenfold: 800 };
 const expNeed = (lv) => Math.round(36 * Math.pow(lv, 1.75));
@@ -28,15 +29,30 @@ const G = {
     s.hp = B.hp + k * 13 + (g.hp || 0); s.sp = B.sp + k * 3 + (g.sp || 0);
     for (const n of ['str', 'kick', 'tech', 'def']) s[n] = B[n] + k * 1.35 + (g[n] || 0); s.spd = B.spd + k * 0.35 + (g.spd || 0);
     if (!isAlly) for (const slot in H.gear) { const it = GEAR[H.gear[slot]]; if (it) for (const n in STAT_N) if (it[n]) s[n] += it[n]; }
+    const wp = WEAPONS[this.armOf(id, isAlly)]; if (wp) for (const n in STAT_N) if (wp[n]) s[n] += wp[n];
     for (const n in s) s[n] = Math.round(s[n]);
     return s;
   },
+  // ---------------------------------------------------------------- weapons: owned ones kept, any hero can wield any of them
+  armOf(id, isAlly) { const H = this.H; return isAlly ? (H.allyArm?.[id] || HEROES[id].arm) : (H.gear.w || 'fist'); },
+  armedLook(id, isAlly) {
+    const L = LOOKS[HEROES[id].look], wid = this.armOf(id, isAlly), wp = WEAPONS[wid] || WEAPONS.fist;
+    return { ...L, key: L.key + '|' + wid, wpn: wp.kind, wpn2: wp.twin ? wp.kind : null, wpnC: wp.color || null };
+  },
+  arm(a, id, isAlly) { const wp = WEAPONS[this.armOf(id, isAlly)] || WEAPONS.fist; a.blade = !!wp.kind; a.reach = wp.reach || 1; return a; },
+  // a save from before weapons could be swapped: the hero's own weapon is in the rack, the old blade too
+  fixArms() { const H = this.H, own = HEROES[H.hero].arm; H.arms ||= [own]; if (!H.arms.includes(own)) H.arms.unshift(own); if (H.gear.w && !H.arms.includes(H.gear.w)) H.arms.push(H.gear.w); if (H.gear.w == null && !H.flags.fist) H.gear.w = own; H.allyArm ||= {}; },
+  rearm() {
+    const H = this.H, h = this.hero; if (!h) return;
+    const hp0 = h.st.hp; h.st = this.stats(H.hero); h.hp = Math.min(h.st.hp, h.hp + h.st.hp - hp0); h.body.setLook(this.armedLook(H.hero)); this.arm(h, H.hero);
+    const a = this.ally; if (a && H.ally) { const ap = a.st.hp; a.st = this.stats(H.ally, true); a.hp = Math.min(a.st.hp, a.hp + a.st.hp - ap); a.body.setLook(this.armedLook(H.ally, true)); this.arm(a, H.ally, true); if (a.ai) a.ai.o.range = 1.6 * (a.reach || 1); }
+  },
   // ---------------------------------------------------------------- a new game, a saved one
   newGame(heroId) {
-    this.H = { hero: heroId, lv: 1, exp: 0, gold: 80, gain: {}, allyGain: {}, techs: [...HEROES[heroId].techs], slots: [HEROES[heroId].techs[0], null, null, null], gear: { w: null, a: null, b: null, c: null }, bag: { salve: 2 }, ally: null, zone: 'zhuo', beaten: {}, proven: {}, seen: {}, inn: 'zhuo', kills: 0, time: 0, quest: 0, flags: {} };
+    this.H = { hero: heroId, lv: 1, exp: 0, gold: 80, gain: {}, allyGain: {}, techs: [...HEROES[heroId].techs], slots: [HEROES[heroId].techs[0], null, null, null], gear: { w: HEROES[heroId].arm, a: null, b: null, c: null }, arms: [HEROES[heroId].arm], allyArm: {}, bag: { salve: 2 }, ally: null, zone: 'zhuo', beaten: {}, proven: {}, seen: {}, inn: 'zhuo', kills: 0, time: 0, quest: 0, flags: {} };
   },
   save(quiet) { try { const H = this.H; H.hp = this.hero?.hp; H.sp = this.hero?.sp; localStorage.setItem(SAVE, JSON.stringify(H)); if (!quiet) ui.toast('已存檔'); } catch (e) {} },
-  load() { try { const s = localStorage.getItem(SAVE); if (!s) return false; this.H = JSON.parse(s); return true; } catch (e) { return false; } },
+  load() { try { const s = localStorage.getItem(SAVE); if (!s) return false; this.H = JSON.parse(s); this.fixArms(); return true; } catch (e) { return false; } },
   hasSave() { try { return !!localStorage.getItem(SAVE); } catch (e) { return false; } },
   // ---------------------------------------------------------------- the road
   async enter(zid, from, o = {}) {
@@ -49,8 +65,9 @@ const G = {
     else if (from === 'fork') { const fk = (Z.forks || []).find((k) => k.to === prev); if (fk) { x = fk.x; z = fk.down ? D - 0.5 : 0.5; f = 1; } }
     else if (from === 'inn') { const d = stage.doors.find((d) => d.shop === 'inn'); x = d ? d.x : 4; z = 0.6; }
     if (o.x != null) x = o.x;
-    const hs = this.stats(H.hero), L = LOOKS[HEROES[H.hero].look];
-    this.hero = W.add({ team: 'hero', name: HEROES[H.hero].name, look: L, st: hs, x, z, f, isHero: true, blade: BLADES.includes(L.wpn), canGrab: true, grip: HEROES[H.hero].grip || 1, hp: H.hp != null ? Math.min(hs.hp, H.hp) : hs.hp, sp: H.sp != null ? Math.min(hs.sp, H.sp) : hs.sp, spRegen: 1.1 });
+    this.fixArms(); const hs = this.stats(H.hero), L = this.armedLook(H.hero);
+    this.hero = W.add({ team: 'hero', name: HEROES[H.hero].name, look: L, st: hs, x, z, f, isHero: true, canGrab: true, grip: HEROES[H.hero].grip || 1, hp: H.hp != null ? Math.min(hs.hp, H.hp) : hs.hp, sp: H.sp != null ? Math.min(hs.sp, H.sp) : hs.sp, spRegen: 1.1 });
+    this.arm(this.hero, H.hero);
     this.hero.reviveItem = () => { if ((H.bag.elixir || 0) > 0) { H.bag.elixir--; ui.toast('還魂丹發揮了效力！'); return true; } return false; };
     if (this.hero.hp <= 0) this.hero.hp = Math.round(hs.hp * 0.5);
     if (H.ally) this.spawnAlly(x - f * 1.5, z + 0.5);
@@ -71,9 +88,10 @@ const G = {
     if (zid === 'zhuo' && !H.flags.intro) { H.flags.intro = 1; await ui.say('', '這裡是涿縣。\n客棧可以休息存檔，飯館吃飯能回復體力，有些菜吃了還會變強。\n盧植道場的老師肯教武藝，但要先打贏他。\n往右邊走出城，就是亂世的大路。'); }
   },
   spawnAlly(x, z) {
-    const H = this.H, id = H.ally, L = LOOKS[HEROES[id].look], s = this.stats(id, true);
-    const a = W.add({ team: 'ally', name: HEROES[id].name, look: L, st: s, x: clamp(x, 1, this.Z.len - 1), z: clamp(z, 0.3, D - 0.3), f: 1, blade: BLADES.includes(L.wpn), canGrab: true, hp: H.allyHp != null ? Math.max(1, Math.min(s.hp, H.allyHp)) : s.hp, sp: s.sp });
-    a.ai = new AI(a, { aggro: 0.75, guard: 0.3, range: L.wpn === 'glaive' || L.wpn === 'spear' || L.wpn === 'snake' ? 2 : 1.6, moves: ['slash', 'kick', 'jab', ...HEROES[id].techs], pack: 3, awake: true, special: 0.18 }); a.ai.leader = this.hero; this.ally = a;
+    const H = this.H, id = H.ally, L = this.armedLook(id, true), s = this.stats(id, true);
+    const a = W.add({ team: 'ally', name: HEROES[id].name, look: L, st: s, x: clamp(x, 1, this.Z.len - 1), z: clamp(z, 0.3, D - 0.3), f: 1, canGrab: true, hp: H.allyHp != null ? Math.max(1, Math.min(s.hp, H.allyHp)) : s.hp, sp: s.sp });
+    this.arm(a, id, true);
+    a.ai = new AI(a, { aggro: 0.75, guard: 0.3, range: 1.6 * (a.reach || 1), moves: ['slash', 'kick', 'jab', ...HEROES[id].techs], pack: 3, awake: true, special: 0.18 }); a.ai.leader = this.hero; this.ally = a;
   },
   makeFoe(type, lv, x, z, extra = {}) {
     const F = FOES[type], k = lv - 1, g = F.grow, L = lookOf(F.look, Math.floor(Math.random() * 6));
@@ -314,10 +332,16 @@ const G = {
     }
   },
   async buyGear(list) {
-    const H = this.H;
+    const H = this.H, fxOf = (g) => Object.keys(STAT_N).filter((n) => g[n]).map((n) => `${STAT_N[n]}${g[n] > 0 ? '+' : ''}${g[n]}`).join(' ');
     for (;;) {
-      const k = await ui.choose(list.map((id) => { const g = GEAR[id], cur = GEAR[H.gear[g.slot]]; const fx = Object.keys(STAT_N).filter((n) => g[n]).map((n) => `${STAT_N[n]}+${g[n]}`).join(' '); return { k: id, n: `${g.n}`, sub: H.gear[g.slot] === id ? '裝備中' : `${g.price} 金`, d: `${SLOT_N[g.slot]}：${fx}${cur ? `（現在：${cur.n}）` : ''}`, off: H.gear[g.slot] === id || H.gold < g.price }; }).concat([{ k: null, n: '離開' }]), { title: '兵器鋪', head: this.gold() });
-      if (!k) return; const g = GEAR[k], old = GEAR[H.gear[g.slot]]; H.gold -= g.price; if (old) H.gold += Math.floor(old.price * 0.4);
+      const k = await ui.choose(list.map((id) => {
+        const w = WEAPONS[id];
+        if (w) { const own = H.arms.includes(id); return { k: id, n: w.n, sub: own ? '已擁有' : `${w.price} 金`, d: `兵器：${fxOf(w)}　${reachN(w)}<br>${w.d}`, off: own || H.gold < w.price }; }
+        const g = GEAR[id], cur = GEAR[H.gear[g.slot]]; return { k: id, n: `${g.n}`, sub: H.gear[g.slot] === id ? '裝備中' : `${g.price} 金`, d: `${SLOT_N[g.slot]}：${fxOf(g)}${cur ? `（現在：${cur.n}）` : ''}`, off: H.gear[g.slot] === id || H.gold < g.price };
+      }).concat([{ k: null, n: '離開' }]), { title: '兵器鋪', head: this.gold() + '　兵器買了都會留著，可以在選單「裝備」裡隨時換' });
+      if (!k) return;
+      if (WEAPONS[k]) { const w = WEAPONS[k]; H.gold -= w.price; H.arms.push(k); audio.sfx('coin'); if (await ui.ask('', `買下了${w.n}。現在就拿在手上嗎？`, [{ k: 1, n: '拿上' }, { k: null, n: '先收著' }])) { H.gear.w = k; this.rearm(); ui.toast(`拿起了${w.n}`); } continue; }
+      const g = GEAR[k], old = GEAR[H.gear[g.slot]]; H.gold -= g.price; if (old) H.gold += Math.floor(old.price * 0.4);
       H.gear[g.slot] = k; const h = this.hero, hp0 = h.st.hp; h.st = this.stats(H.hero); h.hp += h.st.hp - hp0; audio.sfx('coin'); ui.toast(`裝備了${g.n}${old ? `（${old.n}賣了 ${Math.floor(old.price * 0.4)} 金）` : ''}`);
     }
   },
@@ -411,7 +435,21 @@ const G = {
     }
   },
   async gearView() {
-    const H = this.H; await ui.sheet(`<div class="ptitle">裝備</div>` + ['w', 'a', 'b', 'c'].map((s) => { const g = GEAR[H.gear[s]]; return `<div class="stx"><b>${SLOT_N[s]}</b>　${g ? `${g.n}　${Object.keys(STAT_N).filter((n) => g[n]).map((n) => `${STAT_N[n]}+${g[n]}`).join(' ')}` : '（無）'}</div>`; }).join('') + `<div class="stx">在各地的兵器鋪可以買到更好的裝備。</div>`);
+    const H = this.H, fxOf = (g) => Object.keys(STAT_N).filter((n) => g[n]).map((n) => `${STAT_N[n]}${g[n] > 0 ? '+' : ''}${g[n]}`).join(' ');
+    const wInfo = (id) => { const w = WEAPONS[id] || WEAPONS.fist; return `${fxOf(w) || '—'}　${reachN(w)}<br>${w.d}`; };
+    for (;;) {
+      const rows = [{ k: 'w', n: `兵器　${(WEAPONS[H.gear.w] || WEAPONS.fist).n}`, d: wInfo(H.gear.w) + '<br>選這一格可以換兵器' }];
+      if (H.ally) rows.push({ k: 'aw', n: `${HEROES[H.ally].name}的兵器　${WEAPONS[this.armOf(H.ally, true)].n}`, d: wInfo(this.armOf(H.ally, true)) + '<br>選這一格替兄弟換兵器' });
+      for (const sl of ['a', 'b', 'c']) { const g = GEAR[H.gear[sl]]; rows.push({ k: 'x' + sl, n: `${SLOT_N[sl]}　${g ? g.n : '（無）'}`, d: g ? fxOf(g) : '在兵器鋪可以買到', off: true }); }
+      const k = await ui.choose(rows.concat([{ k: null, n: '返回' }]), { title: '裝備', head: `收著的兵器 ${H.arms.length} 把` });
+      if (!k) return;
+      const ally = k === 'aw', who = ally ? H.ally : H.hero, cur = this.armOf(who, ally);
+      const pool = ['fist', ...new Set([...(ally ? [HEROES[who].arm] : []), ...H.arms])];
+      const w = await ui.choose(pool.map((id) => ({ k: id, n: WEAPONS[id].n, sub: id === cur ? '手上' : '', d: wInfo(id) })).concat([{ k: null, n: '返回' }]), { title: `${HEROES[who].name}要拿什麼？`, head: '換了兵器，攻擊的樣子、距離和力量都會跟著變' });
+      if (!w) continue;
+      if (ally) H.allyArm[who] = w; else { H.gear.w = w === 'fist' ? null : w; H.flags.fist = w === 'fist' ? 1 : 0; }
+      this.rearm(); audio.sfx('blade'); ui.toast(`${HEROES[who].name}${w === 'fist' ? '放下了兵器' : '拿起了' + WEAPONS[w].n}`);
+    }
   },
   async bagMenu() {
     const H = this.H, h = this.hero;

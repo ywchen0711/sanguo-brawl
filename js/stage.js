@@ -1,7 +1,7 @@
 // Builds the diorama for one stretch of road: the ground, the street or path through it, houses with their signs,
 // trees and rocks, camps and walls, the hills behind and the sky, and the light of the hour.
 // The walkable band runs along x from 0 to len, and in depth from z = 0 (the back) to z = D (the front).
-import { THREE, PX, pxTex, rng, groundTex, paveTex, wallTex, roofTex, thatchTex, waterTex, signTex, cutout, cutoutMesh } from './render.js?v=9';
+import { THREE, PX, pxTex, rng, groundTex, paveTex, wallTex, roofTex, thatchTex, waterTex, signTex, cutout, cutoutMesh } from './render.js?v=10';
 export const D = 5.2;
 
 const sh = (c, f) => { const n = parseInt(c.slice(1), 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255; const m = (v) => Math.max(0, Math.min(255, Math.round(f >= 1 ? v + (255 - v) * (f - 1) : v * f))); return `rgb(${m(r)},${m(g)},${m(b)})`; };

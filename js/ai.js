@@ -1,8 +1,8 @@
 // How the people of the road fight. Every AI writes the same intent a player's keys would (mx, mz, act, guard,
 // jump, run), so foes and allies play by the hero's rules. Foes take turns: only a few close in at once on
 // the same target, the rest circle at a distance waiting for an opening.
-import { MOVES } from './moves.js?v=9';
-import { D } from './stage.js?v=9';
+import { MOVES } from './moves.js?v=10';
+import { D } from './stage.js?v=10';
 const rand = (a, b) => a + Math.random() * (b - a);
 
 export class AI {

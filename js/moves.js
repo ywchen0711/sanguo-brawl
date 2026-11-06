@@ -11,14 +11,14 @@ export const MOVES = {
   kick:    { anim: 'kick', hits: [{ f: 1, range: [0.2, 1.9], dz: 0.6, h: [0.3, 1.8], dmg: 7, stat: 'kick', kb: 2, stun: 0.34 }], next: 'round', sfx: 'kick' },
   round:   { anim: 'round', hits: [{ f: 1, range: [0.1, 2.1], dz: 0.7, h: [0.6, 2.4], dmg: 10, stat: 'kick', kb: 7, up: 4, down: 1, stun: 0.5 }], sfx: 'smash' },
   // ---- with a blade or pole in hand (heroes and soldiers who carry one)
-  slash:   { anim: 'slash', hits: [{ f: 1, range: [0.1, 2.2], dz: 0.7, h: [0.3, 2.8], dmg: 6, stat: 'str', kb: 1.4, stun: 0.32, fx: 'slash' }], next: 'slash2', sfx: 'blade' },
-  slash2:  { anim: 'slash2', hits: [{ f: 1, range: [0.1, 2.2], dz: 0.7, h: [0.3, 3], dmg: 6, stat: 'str', kb: 1.6, stun: 0.34, fx: 'slash' }], next: 'thrust', sfx: 'blade' },
-  thrust:  { anim: 'thrust', hits: [{ f: 1, range: [0.3, 2.9], dz: 0.6, h: [0.6, 2.4], dmg: 10, stat: 'str', kb: 7, up: 4, down: 1, stun: 0.5, fx: 'slash' }], vel: { f: 1, vx: 4 }, sfx: 'blade2' },
+  slash:   { wpn: 1, anim: 'slash', hits: [{ f: 1, range: [0.1, 2.2], dz: 0.7, h: [0.3, 2.8], dmg: 6, stat: 'str', kb: 1.4, stun: 0.32, fx: 'slash' }], next: 'slash2', sfx: 'blade' },
+  slash2:  { wpn: 1, anim: 'slash2', hits: [{ f: 1, range: [0.1, 2.2], dz: 0.7, h: [0.3, 3], dmg: 6, stat: 'str', kb: 1.6, stun: 0.34, fx: 'slash' }], next: 'thrust', sfx: 'blade' },
+  thrust:  { wpn: 1, anim: 'thrust', hits: [{ f: 1, range: [0.3, 2.9], dz: 0.6, h: [0.6, 2.4], dmg: 10, stat: 'str', kb: 7, up: 4, down: 1, stun: 0.5, fx: 'slash' }], vel: { f: 1, vx: 4 }, sfx: 'blade2' },
   // ---- on the move and in the air
   dash:    { anim: 'straight', dur: [0.05, 0.28, 0.12], hits: [{ f: 1, range: [0, 1.8], dz: 0.6, h: [0.4, 2.4], dmg: 9, stat: 'str', kb: 7, up: 5, down: 1, stun: 0.5 }], vel: { f: 0, vx: 9, keep: 1 }, sfx: 'smash' },
   flykick: { anim: 'jkick', dur: [0.42], hits: [{ f: 0, range: [0, 1.9], dz: 0.6, h: [0.2, 2.6], dmg: 10, stat: 'kick', kb: 8, up: 5, down: 1, stun: 0.5 }], vel: { f: 0, vx: 10, vy: 5 }, air: 1, sfx: 'kick' },
   jkick:   { anim: 'jkick', dur: [0.5], hits: [{ f: 0, range: [0, 1.8], dz: 0.6, h: [-0.6, 2.2], dmg: 8, stat: 'kick', kb: 5, up: 3, down: 1, stun: 0.45 }], air: 1, sfx: 'kick' },
-  jslash:  { anim: 'slash', dur: [0.06, 0.18, 0.2], hits: [{ f: 1, range: [0, 2.2], dz: 0.7, h: [-0.6, 2.6], dmg: 8, stat: 'str', kb: 5, up: 2, down: 1, stun: 0.45, fx: 'slash' }], air: 1, sfx: 'blade' },
+  jslash:  { wpn: 1, anim: 'slash', dur: [0.06, 0.18, 0.2], hits: [{ f: 1, range: [0, 2.2], dz: 0.7, h: [-0.6, 2.6], dmg: 8, stat: 'str', kb: 5, up: 2, down: 1, stun: 0.45, fx: 'slash' }], air: 1, sfx: 'blade' },
   upper:   { anim: 'upper', hits: [{ f: 1, range: [0, 1.6], dz: 0.6, h: [0.4, 3.4], dmg: 8, stat: 'str', kb: 1.5, launch: 11, stun: 0.6 }], sfx: 'smash' },
   // ---- holding someone
   knee:    { anim: 'knee', dur: [0.18], hits: [{ f: 0, range: [-0.2, 1.3], dz: 0.5, h: [0, 2.5], dmg: 6, stat: 'kick', kb: 0, stun: 0.4, grab: 1 }], sfx: 'punch' },
@@ -56,5 +56,5 @@ export const MOVES = {
 // the techniques a hero can learn, and where
 export const TECHS = ['whirl', 'hundred', 'rising', 'swallow', 'headbutt', 'quake', 'kiball', 'heal', 'diamond', 'ghost', 'chain', 'backspear', 'twinblade', 'dragon', 'roar', 'sevenfold', 'arrow', 'twinji', 'tigercharge', 'bellrush', 'fire', 'thunder', 'halberd', 'bodyslam', 'mist'];
 // every move's frame times: the animation's own, unless the move says otherwise
-import { ANIMS } from './art.js?v=9';
+import { ANIMS } from './art.js?v=10';
 export function durs(m) { return m.dur || ANIMS[m.anim].map((f) => f.t); }

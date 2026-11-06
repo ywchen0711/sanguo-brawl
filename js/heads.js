@@ -74,7 +74,7 @@ HATS.feathers = HATS.helm;    // the pheasant feathers are drawn as curves on to
 export const BEARDS = {
   long: [12, ['..........DDDDD.', '.........dDDDDD.', '........dDDDDDD.', '........dDDDDD..', '........dDDFDD..', '.........dDFD...', '.........dDDD...', '.........dDFD...', '..........dDD...', '..........dD....', '..........dD....', '...........d....']],
   bushy: [12, ['....d.....DDDDDD', '...dDd...dDDDDDd', '....dDDDDFDDDDD.', '...dDDDDDDDFDd..', '....dDDDDDDDd...', '.....dD.dDD.d...', '......d...d.....']],
-  goatee: [12, ['..........DDDDD.', '...........d..d.', '..........dD....', '..........dD....', '...........d....']],
-  mustache: [12, ['..........DDDDD.', '..........d...d.']],
+  goatee: [12, []],          // the goatee and the mustache are fine lines, drawn at the doubled size (art.js)
+  mustache: [12, []],
   stubble: [13, ['........z.z.z...', '.........z.z....']],
 };

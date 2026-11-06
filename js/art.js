@@ -11,7 +11,7 @@
 export const FW = 160, FH = 168;          // frame size in pixels; the feet stand at (80, 152)
 export const OX = 80, OY = 152;
 export const PPU = 32;                     // pixels to a unit of the world
-import { HEADS, HATS, BEARDS, ANCHOR } from './heads.js?v=9';
+import { HEADS, HATS, BEARDS, ANCHOR } from './heads.js?v=10';
 const R = Math.PI / 180;
 
 const hexRGB = (c) => { const n = parseInt(c.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
@@ -358,6 +358,9 @@ function drawHeadT(B, L, c, P, ang, beardOnly) {
     if (g.get('30,22') === 'S') E(30, 22, 's');                                            // under the nose
     if (P.mouth) { for (const [x, y] of [[25, 25], [26, 25], [25, 26], [26, 26], [25, 27]]) E(x, y, 'm'); E(26, 25, 'n'); }
     else if (!beard || L.beard === 'stubble') { E(25, 26, L.lips ? 'p' : 't'); E(26, 26, L.lips ? 'p' : 't'); }
+    // a mustache of one fine stroke, its ends drooping; a goatee is a small tuft under the lip
+    if (L.beard === 'mustache' || L.beard === 'goatee') { for (const [x, y] of [[23, 25], [24, 24], [25, 24], [26, 24], [27, 24], [28, 24], [29, 25]]) E(x, y, 'D'); E(26, 24, 'F'); if (!P.mouth) { E(25, 26, 't'); E(26, 26, 't'); } }
+    if (L.beard === 'goatee') { for (const [x, y] of [[26, 28], [27, 28], [26, 29], [27, 29], [27, 30], [27, 31]]) E(x, y, 'D'); E(26, 29, 'F'); E(28, 29, 'd'); E(28, 30, 'd'); }
     if (L.blush) { E(25, 22, 'q'); E(26, 22, 'q'); }
     if (L.paint) for (let x = 18; x <= 27; x++) E(x, 23, 'w');
     if (L.hat === 'feathers') for (const [p0, p1, p2] of [[[18, -4], [26, -40], [-14, -34]], [[14, -4], [10, -32], [-20, -16]]]) {
