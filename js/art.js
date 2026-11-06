@@ -4,10 +4,12 @@
 // and one away from it measure how far each pixel is from the part's lit and shaded edges, which turns into a
 // rounded, banded light; parts in front cast a small shadow on what lies behind, metal gets a hard glint,
 // shadows lean cool and lights lean warm, and the figure gets a dark coloured outline.
-// The people are about six heads tall, drawn at two pixels per old unit (32 pixels to a unit of the world).
+// The people are about six heads tall, drawn at three pixels per old unit (48 pixels to a unit of the world).
+// Light bands are dithered into each other, hair has strands, armour plates have rivets, hems are embroidered.
 // A look (L) says what the person wears; a sheet holds every frame of every animation for one look.
-export const FW = 176, FH = 168;          // frame size in pixels; the feet stand at (88, 156)
-export const OX = 88, OY = 156;
+export const FW = 264, FH = 252;          // frame size in pixels; the feet stand at (132, 234)
+export const OX = 132, OY = 234;
+export const PPU = 48;                     // pixels to a unit of the world
 const R = Math.PI / 180;
 
 const hexRGB = (c) => { const n = parseInt(c.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
@@ -26,7 +28,7 @@ class Buf {
   disc(cx, cy, r, col) { const c = pack(col), r2 = r * r; for (let y = Math.floor(cy - r); y <= Math.ceil(cy + r); y++) for (let x = Math.floor(cx - r); x <= Math.ceil(cx + r); x++) { const dx = x - cx, dy = y - cy; if (dx * dx + dy * dy <= r2 + 0.25) this.set(x, y, c); } }
   seg(x0, y0, x1, y1, w, col) { const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) * 2)); for (let i = 0; i <= n; i++) { const t = i / n; this.disc(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, w / 2, col); } }
   // a tapering limb: width w0 at the start, w1 at the end
-  limb(a, b, w0, w1, col) { const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) * 2)); for (let i = 0; i <= n; i++) { const t = i / n; this.disc(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, (w0 + (w1 - w0) * t) / 2, col); } }
+  limb(a, b, w0, w1, col) { const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) * (Math.min(w0, w1) > 4 ? 1 : 2))); for (let i = 0; i <= n; i++) { const t = i / n; this.disc(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, (w0 + (w1 - w0) * t) / 2, col); } }
   // a path of points with a width that tapers from w0 to w1
   path(pts, w0, w1, col) { for (let i = 0; i + 1 < pts.length; i++) this.limb(pts[i], pts[i + 1], w0 + (w1 - w0) * (i / (pts.length - 1)), w0 + (w1 - w0) * ((i + 1) / (pts.length - 1)), col); }
   poly(pts, col) {
@@ -48,33 +50,43 @@ class Buf {
       else { r *= f; g *= f; b *= f; const t = (1 - f) * 0.45; r += (COOL[0] * f - r) * t; g += (COOL[1] * f - g) * t; b += (COOL[2] * f - b) * t; }
       return (Math.max(0, Math.min(255, Math.round(r))) << 16) | (Math.max(0, Math.min(255, Math.round(g))) << 8) | Math.max(0, Math.min(255, Math.round(b)));
     };
-    const ray = (x, y, k, dx, dy) => { let n = 0; for (let t = 1; t < 26; t++) { const j = at(Math.round(x + dx * t), Math.round(y + dy * t)); if (j < 0 || c[j] < 0 || p[j] !== k) break; n = t; } return n; };
-    const BANDS = [0.5, 0.64, 0.78, 0.9, 1, 1.1], MBANDS = [0.42, 0.6, 0.8, 1, 1.22, 1.55];
-    const band = (f, L) => { let best = L[0]; for (const b of L) if (Math.abs(b - f) < Math.abs(best - f)) best = b; return best; };
+    // how many steps toward the light (up-left) and away from it each pixel can go and stay in its own part: two sweeps
+    const NC = M.map((m) => !!(m && m.noCast)), seam = (j, ok, k) => ok && c[j] >= 0 && p[j] < k && !NC[p[j]];
+    const DL = new Int16Array(W * H), DD = new Int16Array(W * H);
+    for (let y = 1; y < H; y++) for (let x = 1; x < W; x++) { const i = y * W + x, j = i - W - 1; if (c[i] >= 0 && c[j] >= 0 && p[j] === p[i]) DL[i] = DL[j] + 1; }
+    for (let y = H - 2; y >= 0; y--) for (let x = W - 2; x >= 0; x--) { const i = y * W + x, j = i + W + 1; if (c[i] >= 0 && c[j] >= 0 && p[j] === p[i]) DD[i] = DD[j] + 1; }
+    const BANDS = [0.46, 0.56, 0.66, 0.76, 0.86, 0.95, 1.03, 1.11], MBANDS = [0.38, 0.5, 0.64, 0.8, 0.96, 1.14, 1.34, 1.6];
+    const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+    // the nearest band, or (dithered) a checker of the two bands either side
+    const band = (f, L, x, y, dith) => { if (f <= L[0]) return L[0]; for (let i = 1; i < L.length; i++) if (f <= L[i]) { const t = (f - L[i - 1]) / (L[i] - L[i - 1]); return (dith ? t > (BAYER[(y & 3) * 4 + (x & 3)] + 0.5) / 16 : t >= 0.5) ? L[i] : L[i - 1]; } return L[L.length - 1]; };
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const i = y * W + x; if (c[i] < 0) continue; const k = p[i], m = M[k] || M[1];
       let f = 1;
       if (m.k !== 'flat') {
-        const dl = ray(x, y, k, lx, ly), dd = ray(x, y, k, -lx, -ly), span = dl + dd;
+        const dl = DL[i] * 1.4, dd = DD[i] * 1.4, span = dl + dd;
         const n = span < 2 ? 0.35 : (dd - dl) / span;              // +1 at the lit edge, -1 at the shaded edge
         const lam = Math.max(0, n * 0.74 + Math.sqrt(Math.max(0, 1 - n * n)) * 0.58);
-        if (m.k === 'metal') { f = 0.4 + lam * 0.85; if (n > 0.35 && n < 0.75) f = 1.55; f = band(f, MBANDS); }
-        else if (m.k === 'soft') f = band(0.8 + lam * 0.34, BANDS);
-        else { f = 0.5 + lam * 0.6; if (n < -0.82 && span > 4) f += 0.12; f = band(f, BANDS); }
-        if (m.pat === 'scale') { const row = Math.floor(y / 3), xx = x + (row % 2) * 2; if (y % 3 === 2) f *= 0.78; else if (xx % 4 === 0) f *= 0.86; else if (y % 3 === 0 && xx % 4 === 2) f *= 1.08; }
-        if (m.pat === 'fold') { const q = (x * 7 + Math.floor(y / 9) * 3) % 9; if (q === 0) f *= 0.84; else if (q === 1) f *= 1.06; }
+        if (m.k === 'metal') { f = n > 0.4 && n < 0.68 && span > 3 ? 1.6 : band(0.38 + lam * 0.95, MBANDS, x, y, true); }
+        else if (m.k === 'soft') f = band(0.8 + lam * 0.34, BANDS, x, y, false);
+        else { f = 0.46 + lam * 0.66; if (n < -0.82 && span > 6) f += 0.12; f = band(f, BANDS, x, y, true); }
       }
+      if (m.pat === 'scale') { const row = Math.floor(y / 5), xx = x + (row % 2) * 3, yy = y % 5; if (yy === 4) f *= 0.72; else if (xx % 6 === 0) f *= 0.84; else if (yy === 1 && xx % 6 === 3) f *= 1.3; else if (yy === 0) f *= 1.08; }
+      else if (m.pat === 'fold') { const q = (x * 7 + Math.floor(y / 13) * 3) % 13; if (q === 0) f *= 0.84; else if (q === 1) f *= 1.06; }
+      else if (m.pat === 'strand') { const a = Math.atan2(y - m.cy, x - m.cx) / R + (((x * 13 + y * 7) % 5) - 2) * 0.4, q = ((Math.floor(a / 5) % 4) + 4) % 4; if (q === 0) f *= 0.8; else if (q === 2) f *= 1.1; }
+      else if (m.pat === 'trim') { const q = ((x >> 1) + (y >> 1)) % 3; if (q === 0) f *= 1.3; else if (q === 1 && ((x + y) & 1)) f *= 0.85; }
+      else if (m.pat === 'grain') { if ((x * 3 + y * 5) % 11 === 0) f *= 0.82; }
+      else if (m.pat === 'stud') { const q = (x + y) % 7; if (q === 0) f *= 1.45; else if (q === 1) f *= 0.8; }
       // a part in front of this one, just toward the light, throws a little shadow on it
-      if (!m.noShade) for (let t = 1; t <= 2; t++) { const j = at(Math.round(x + lx * t * 1.2), Math.round(y + ly * t * 1.2)); if (j >= 0 && c[j] >= 0 && p[j] > k && !(M[p[j]] || {}).noCast) { f *= 0.8; break; } }
+      if (!m.noShade) for (let t = 1; t <= 2; t++) { const j = at(x - t, y - t - (t >> 1)); if (j >= 0 && c[j] >= 0 && p[j] > k && !NC[p[j]]) { f *= 0.8; break; } }
       // a seam against what lies behind
-      if (!m.noSeam) for (const j of [at(x, y - 1), at(x - 1, y), at(x + 1, y), at(x, y + 1)]) if (j >= 0 && c[j] >= 0 && p[j] < k && !(M[p[j]] || {}).noCast) { f *= 0.74; break; }
+      if (!m.noSeam && (seam(i - W, y > 0, k) || seam(i - 1, x > 0, k) || seam(i + 1, x < W - 1, k) || seam(i + W, y < H - 1, k))) f *= 0.74;
       col[i] = tone(c[i], f);
     }
     const oc = pack(outline || '#1a1018');
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const i = y * W + x, o = i * 4;
       if (c[i] >= 0) { const v = col[i]; out[o] = (v >> 16) & 255; out[o + 1] = (v >> 8) & 255; out[o + 2] = v & 255; out[o + 3] = 255; continue; }
-      let n = -1; for (const j of [at(x - 1, y), at(x + 1, y), at(x, y - 1), at(x, y + 1)]) if (j >= 0 && c[j] >= 0) { n = j; break; }
+      const n = x > 0 && c[i - 1] >= 0 ? i - 1 : x < W - 1 && c[i + 1] >= 0 ? i + 1 : y > 0 && c[i - W] >= 0 ? i - W : y < H - 1 && c[i + W] >= 0 ? i + W : -1;
       if (n >= 0) { const v = tone(c[n], 0.3), m = (a, b) => Math.round(a * 0.45 + b * 0.55); out[o] = m((v >> 16) & 255, (oc >> 16) & 255); out[o + 1] = m((v >> 8) & 255, (oc >> 8) & 255); out[o + 2] = m(v & 255, oc & 255); out[o + 3] = 255; }
     }
     return out;
@@ -89,10 +101,10 @@ const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
 // defaults every pose starts from
 const BASE = { bx: 0, by: 0, lean: 4, hd: [0, 0], fa: [20, 60], ba: [-15, 50], fl: [10, 8], bl: [-10, 6], w: 120, w2: null, eye: 'open', mouth: 0, tilt: 0, fx: 0 };
-export let lastHead = [OX, 40];
+export let lastHead = [OX, 60];
 
 export function drawFrame(L, pose) {
-  const P = { ...BASE, ...pose }, s = L.size || 1, B = new Buf();
+  const P = { ...BASE, ...pose }, s = (L.size || 1) * 1.5, B = new Buf();
   const fat = L.fat ? 1 : 0, skin = L.skin || '#f0c49a', robe = L.robe || '#4a6a9a', robe2 = L.robe2 || shade(robe, 0.7);
   const armor = L.bare ? null : L.armor, pants = L.pants || shade(robe, 0.6), boots = L.boots || '#3a2a22', trim = L.trim || robe2;
   // pelvis, the legs below it (the poses were made at 16.5 old units of leg; these legs are 41 pixels)
@@ -118,6 +130,7 @@ export function drawFrame(L, pose) {
     const top = lerp(G.knee, G.ank, 0.52), f = G.fwd, d = G.dn, A = G.ank, q = (u, v) => [A[0] + (f[0] * u + d[0] * v) * s, A[1] + (f[1] * u + d[1] * v) * s];
     B.next(); B.limb(top, A, 6.6 * s, 5.8 * s, bc);
     B.poly([q(-3, -2), q(-3.2, 2.4), q(-2.4, 3.2), q(7, 3.2), q(8, 1.8), q(7.4, 0.4), q(3.8, -1.4), q(2.2, -3)], bc);
+    flat(B); B.limb(q(-3, 2.6), q(7.6, 2.6), 1.4 * s, 1.4 * s, shade(bc, 0.5));
     flat(B); { const r = (u, v) => [top[0] + (f[0] * u + d[0] * v) * s, top[1] + (f[1] * u + d[1] * v) * s]; B.poly([r(-3.5, -0.8), r(3.5, -0.8), r(3.5, 0.9), r(-3.5, 0.9)], dk(L.bootTrim || mix(bc, '#c8a868', 0.35))); }
   };
   const drawArm = (A, back, hold) => {
@@ -130,7 +143,7 @@ export function drawFrame(L, pose) {
       const cuff = add(A.wr, A.d2, -0.6 * s), mid = lerp(A.elb, cuff, 0.55);
       B.limb(A.elb, cuff, 8.4 * s, 10 * s, sl);
       B.poly([add(A.elb, perp, 3.5 * s), add(cuff, perp, 5 * s), add(cuff, perp, -5 * s), [mid[0], mid[1] + 9 * s], add(A.elb, perp, -3.5 * s)], sl);
-      flat(B); B.limb(add(cuff, perp, 4.6 * s), add(cuff, perp, -4.6 * s), 1.8 * s, 1.8 * s, dk(trim));
+      flat(B); B.meta[B.part].pat = 'trim'; B.limb(add(cuff, perp, 4.6 * s), add(cuff, perp, -4.6 * s), 1.8 * s, 1.8 * s, dk(trim));
     } else {
       B.next('vol', 'fold'); B.limb(A.sh, A.elb, (8.4 + fat) * s, 7 * s, sl);
       const fore = L.bracer ? dk(L.bracer) : armor ? dk(shade(armor, 0.92)) : sk;
@@ -140,6 +153,7 @@ export function drawFrame(L, pose) {
     if (armor) { B.next('metal', 'scale'); const d1 = [A.elb[0] - A.sh[0], A.elb[1] - A.sh[1]], l = Math.hypot(...d1) || 1, u = [d1[0] / l, d1[1] / l]; B.limb(add(A.sh, u, -1 * s), add(A.sh, u, 6.5 * s), 10 * s, 9 * s, dk(armor)); }
     if (hold) hold();
     B.next(); B.disc(A.hand[0], A.hand[1], 3.1 * s, sk); B.disc(A.hand[0] + perp[0] * 1.6 * s, A.hand[1] + perp[1] * 1.6 * s, 1.7 * s, sk);
+    flat(B); { const kn = add(A.hand, A.d2, 1.4 * s); for (let i = -1; i <= 1; i++) B.set(kn[0] + perp[0] * i * 1.4 * s, kn[1] + perp[1] * i * 1.4 * s, pack(shade(sk, 0.68))); }
   };
   // ---- behind: the back arm (and a second weapon), the back leg, a cape
   if (P.w2 != null && L.wpn2) drawWeapon(B, L.wpn2, BA.hand, P.w2, s * 2, true);
@@ -166,11 +180,11 @@ export function drawFrame(L, pose) {
     if (L.mirror !== 0) { B.next('metal'); B.disc(...T(1.8 + fat * 1.5, 17), 3.6 * s, L.mirrorC || '#d8b048'); B.next('metal'); B.disc(...T(1.8 + fat * 1.5, 17), 1.9 * s, mix(L.mirrorC || '#d8b048', '#ffffff', 0.35)); }
   } else {
     // a robe crossed over at the chest
-    flat(B); B.poly([T(-2.4, 27.2), T(0.8, 27.2), T(4.6 + fat * 4, 10), T(2.6 + fat * 4, 9.4)], robe2);
+    flat(B); B.meta[B.part].pat = 'trim'; B.poly([T(-2.4, 27.2), T(0.8, 27.2), T(4.6 + fat * 4, 10), T(2.6 + fat * 4, 9.4)], robe2);
     flat(B); B.seg(...T(-0.8, 27), ...T(2.4, 26.8), 1.1, '#efe8d8');
   }
   // the belt, its buckle, the sash ends
-  B.next(); B.poly([T(-7.6 - fat, 6.4), T(6.6 + fat * 6.2, 6.4), T(6.8 + fat * 5.8, 10.4), T(-7.6 - fat, 10.4)], L.belt || '#6a4a2a');
+  B.next('vol', L.beltGold || armor ? 'stud' : null); B.poly([T(-7.6 - fat, 6.4), T(6.6 + fat * 6.2, 6.4), T(6.8 + fat * 5.8, 10.4), T(-7.6 - fat, 10.4)], L.belt || '#6a4a2a');
   if (L.sash) { B.next('vol', 'fold'); const k = T(1 + fat * 5, 7), sw = P.cape ?? 0; B.path([k, [k[0] - (1 + sw * 0.2) * s, k[1] + 8 * s], [k[0] - (3 + sw * 0.4) * s, k[1] + 16 * s]], 3 * s, 2.4 * s, L.sash); }
   // the front leg, then the skirt of the robe (or armour tassets) over it, following the legs
   drawLeg(FL, false);
@@ -178,7 +192,7 @@ export function drawFrame(L, pose) {
     const len = L.skirt || 0.55, kF = lerp(FL.hip, FL.ank, len), kB = lerp(BL.hip, BL.ank, len);
     const sk = L.skirtC || robe, hy = Math.max(kF[1], kB[1]) + 2 * s, x0 = Math.min(kF[0], kB[0]) - 5 * s, x1 = Math.max(kF[0], kB[0]) + 5 * s;
     B.next('vol', 'fold'); B.poly([T(-7.2 - fat, 8), T(6.8 + fat * 6, 8), [x1, hy - 1], [lerp([x0, hy], [x1, hy], 0.5)[0], hy + 1.5 * s], [x0, hy]], sk);
-    flat(B); B.seg(x0 + 1, hy - 0.5, x1 - 1, hy - 1.2, 2 * s, shade(trim, 0.95));
+    flat(B); B.meta[B.part].pat = 'trim'; B.seg(x0 + 1, hy - 0.5, x1 - 1, hy - 1.2, 2 * s, shade(trim, 0.95));
     if (armor && L.skirtC == null) { const ty = pel[1] + (hy - pel[1]) * 0.62; B.next('metal', 'scale'); B.poly([T(-7.4 - fat, 7.6), T(7 + fat * 6, 7.6), [x1 - 1, ty], [x0 + 1, ty + 1]], shade(armor, 0.95)); flat(B); B.seg(x0 + 1.5, ty + 0.5, x1 - 1.5, ty, 1.4 * s, shade(L.armorTrim || '#c89a3a', 0.9)); }
   }
   if (L.beltGold || armor) { B.next('metal'); B.disc(...T(2.6 + fat * 5, 8.4), 2.6 * s, '#e0b040'); B.next('metal'); B.disc(...T(2.6 + fat * 5, 8.4), 1 * s, '#fff0b0'); }
@@ -186,6 +200,7 @@ export function drawFrame(L, pose) {
   drawHead(B, L, headC, s * 1.16 * (L.head || 1), P, ha);
   // ---- the weapon in the front hand, gripped by it; the front arm over the body
   drawArm(FA, false, () => { if (L.wpn && P.w != null) drawWeapon(B, L.wpn, FA.hand, P.w, s * 2, false, L.wpnC); });
+  if (L.beard === 'long') drawHead(B, L, headC, s * 1.16 * (L.head || 1), { ...P, beardOnly: 1 }, ha);
   if (L.shield) { const c = FA.wr; B.next(); B.disc(c[0] + 2, c[1], 8.6 * s, L.shield); flat(B); B.disc(c[0] + 2, c[1], 2.6 * s, '#d8c070'); }
   return B.finish(L.outline);
 }
@@ -199,15 +214,16 @@ function drawHead(B, L, c, k, P, ang) {
   const seg = (u0, v0, u1, v1, w, col) => { const A = H(u0, v0), Bp = H(u1, v1); B.seg(A[0], A[1], Bp[0], Bp[1], w * k, col); };
   const path = (pts, w0, w1, col) => B.path(pts.map(([u, v]) => H(u, v)), w0 * k, w1 * k, col);
   const hc = L.hatC || '#3a3a5a', h2 = L.hatC2 || '#c03030', sheen = mix(hair, '#b8c0d8', 0.3);
+  if (!P.beardOnly) {
   // long hair falls behind
-  if (L.longHair) { B.next('vol', 'fold'); poly([[-4, -1], [-7.6, 3], [-8.4, 13], [-6.6, 19], [-3.6, 17], [-2.6, 6]], hair); }
+  if (L.longHair) { B.next('vol', 'strand'); { const cc = H(-2, -8); B.meta[B.part].cx = cc[0]; B.meta[B.part].cy = cc[1]; } poly([[-4, -1], [-7.6, 3], [-8.4, 13], [-6.6, 19], [-3.6, 17], [-2.6, 6]], hair); }
   if (L.hat === 'plume' || L.hat === 'helm' || L.hat === 'feathers') { /* drawn with the helm */ }
   // skull, jaw, nose
   B.next('soft'); B.meta[B.part].noShade = true; ell(0, 0, 6.8, 7.2, skin); poly([[-4, 2], [6.5, 0.4], [7, 3.6], [6.4, 6.2], [4.4, 8.2], [1.6, 8.8], [-1.6, 7.4], [-4, 5]], skin); poly([[6.2, 0.8], [7.6, 3.8], [6.4, 4.3]], skin);
   // ear
-  B.next(); ell(-2.8, 2, 1.6, 2.3, shade(skin, 0.92));
+  B.next(); ell(-2.8, 2, 1.6, 2.3, shade(skin, 0.92)); flat(B); seg(-2.6, 1, -2.4, 3, 0.7, shade(skin, 0.66));
   // hair over the top and back of the head, bangs over the brow, the sheen of it
-  B.next();
+  B.next('vol', 'strand'); { const cc = H(-1.5, -7.5); B.meta[B.part].cx = cc[0]; B.meta[B.part].cy = cc[1]; }
   if (L.hat !== 'bald') {
     const pts = []; for (let a = -25; a >= -205; a -= 15) pts.push([Math.cos(a * R) * 7.7, Math.sin(a * R) * 8]);
     poly(pts.concat([[-7.2, 4], [-4.6, 6.4], [-2.6, 4.2], [-2.4, 0.4], [-0.4, -1.4], [2.2, -2.6], [4.6, -3.2], [6.4, -2.2]]), hair);
@@ -221,25 +237,29 @@ function drawHead(B, L, c, k, P, ang) {
   if (P.eye === 'closed') { seg(1.6, 1.4, 5, 1.6, 0.9, lid); seg(5.8, 1.3, 7.1, 1.4, 0.8, lid); }
   else if (P.eye === 'hurt') { seg(1.8, 0.2, 4.6, 1.2, 0.9, lid); seg(1.8, 2.2, 4.6, 1.2, 0.9, lid); seg(5.9, 0.6, 7, 1.2, 0.8, lid); }
   else {
-    ell(3.2, 1.3, 1.9, 1.15, '#f4efe6'); ell(3.8, 1.35, 1, 1.3, eyeC); ell(6.5, 1.2, 0.95, 0.9, '#f4efe6'); ell(6.7, 1.25, 0.6, 1, eyeC);
+    ell(3.2, 1.3, 1.9, 1.15, '#f4efe6'); ell(3.8, 1.35, 1, 1.3, eyeC); flat(B); ell(3.85, 1.95, 0.7, 0.55, mix(eyeC, '#b07a50', 0.45)); flat(B); B.disc(...H(3.85, 1.3), 0.45 * k, '#0a0606'); ell(6.5, 1.2, 0.95, 0.9, '#f4efe6'); ell(6.7, 1.25, 0.6, 1, eyeC);
     flat(B); B.disc(...H(3.6, 0.7), 0.5 * k, '#ffffff');
     flat(B); seg(1.2, 0.2, 5.2, 0, 0.75, lid); seg(1.2, 0.2, 0.8, 0.8, 0.6, lid); seg(5.7, 0.2, 7.3, 0.3, 0.65, lid);
     if (L.lashes) seg(0.6, -0.2, 1.4, 0.4, 0.8, lid);
   }
-  flat(B); const bw = (L.brow || (L.fierce ? 1.2 : 0.85)) * 1.1, bcol = shade(hair, 0.9);
+  flat(B); const bw = (L.brow || (L.fierce ? 1.2 : 0.7)) * 1.05, bcol = shade(hair, 0.9);
   if (L.fierce) { seg(0.8, -3, 4.8, -1.5, bw, bcol); seg(5.8, -1.6, 7.3, -2.2, bw * 0.8, bcol); } else { seg(1, -2.2, 4.8, -2.7, bw, bcol); seg(5.8, -2.6, 7.2, -2.3, bw * 0.8, bcol); }
   flat(B);
   if (P.mouth) { ell(5.6, 5.9, 1.3, 1.1, '#5a1a1a'); flat(B); seg(4.8, 5.1, 6.4, 5.1, 0.6, '#efe8e0'); }
-  else seg(4.6, 5.7, 6.5, 5.5, 0.75, L.lips || shade(skin, 0.62));
+  else { seg(4.6, 5.7, 6.5, 5.5, 0.75, L.lips ? shade(L.lips, 0.75) : shade(skin, 0.62)); flat(B); seg(5, 6.4, 6.1, 6.3, 0.6, L.lips || shade(skin, 0.86)); }
+  flat(B); B.disc(...H(6.4, 4.1), 0.4 * k, shade(skin, 0.6));
   if (L.blush) { flat(B); ell(4, 3.6, 1.4, 0.7, mix(skin, '#ff7a7a', 0.3)); }
   if (L.paint) { flat(B); seg(1, 3, 6.4, 3, 0.9, L.paint); seg(1.4, 4.6, 5.6, 4.6, 0.7, L.paint); }
+  }
+  if (P.beardOnly) du = -1.7;
   // the beard
   const bc = L.beardC || hair, bl = mix(bc, '#c8c0b8', 0.22);
-  if (L.beard === 'long') {
+  if (L.beard === 'long' && P.beardOnly) {
     B.next('vol', 'fold'); poly([[-1.8, 4], [0.4, 4.4], [1.6, 6.2], [6.2, 5.8], [6.9, 8.2], [5.8, 16], [4.2, 24], [2.6, 26.4], [1.2, 18], [-0.4, 10], [-2, 7]], bc);
     flat(B); seg(3.6, 9, 3.4, 20, 0.6, bl); seg(5.2, 9, 4.6, 17, 0.6, bl);
     B.next(); poly([[4.4, 4.6], [7.2, 4.4], [7.6, 5.4], [6, 5.3], [4.6, 7.6], [3.9, 5.4]], bc);
   }
+  if (P.beardOnly) return;
   if (L.beard === 'bushy') {
     B.next(); poly([[-3.6, 3], [6.9, 3.4], [7.4, 6.2], [5.6, 9.6], [2, 11.2], [-2, 9.2], [-4, 5.2]], bc);
     for (const [u, v, a] of [[7, 5, 20], [6.6, 8, 45], [4.6, 10.4, 70], [1.6, 11, 95], [-1.4, 9.8, 120], [-3.4, 7.4, 145], [-4, 4.6, 170]]) { const d = [Math.cos(a * R), Math.sin(a * R)], p = [-d[1], d[0]]; poly([[u + p[0] * 1.5, v + p[1] * 1.5], [u + d[0] * 3.4, v + d[1] * 3.4], [u - p[0] * 1.5, v - p[1] * 1.5]], bc); }
@@ -285,12 +305,12 @@ function drawHead(B, L, c, k, P, ang) {
 function drawWeapon(B, kind, h, a, s, back, colour) {
   const d = dirOf(a), p = [Math.cos(a * R), -Math.sin(a * R)], steel = back ? '#9aa2b0' : '#d8e0ea', wood = back ? '#5a3a20' : '#7a5028', gold = '#e0b040';
   const at = (l, w = 0) => [h[0] + d[0] * l * s + p[0] * w * s, h[1] + d[1] * l * s + p[1] * w * s];
-  const line = (l0, l1, w, c, k = 'vol') => { B.next(k); const A = at(l0), Bp = at(l1); B.seg(A[0], A[1], Bp[0], Bp[1], w * s, c); };
+  const line = (l0, l1, w, c, k = 'vol') => { B.next(k, k === 'vol' ? 'grain' : null); const A = at(l0), Bp = at(l1); B.seg(A[0], A[1], Bp[0], Bp[1], w * s, c); };
   const poly = (pts, c, k = 'metal') => { B.next(k); B.poly(pts, c); };
   const edge = (l0, l1, w0, w1) => { flat(B); const A = at(l0, w0), Bp = at(l1, w1); B.seg(A[0], A[1], Bp[0], Bp[1], 1, '#ffffff'); };
   const tassel = (l) => { B.next('vol', 'fold'); const c = at(l); for (const k of [-1, 0, 1]) B.limb(c, [c[0] - d[0] * 3 * s + k * 1.4 * s, c[1] - d[1] * 3 * s + 3.2 * s], 1.8 * s, 1 * s, '#c02828'); B.next(); B.disc(...c, 1.3 * s, '#e0b040'); };
   switch (kind) {
-    case 'sword': line(-3, 0, 1.4, '#4a2a1a'); line(-3.6, -3.2, 1.8, gold, 'metal'); line(0.8, 1.2, 4.2, gold, 'metal'); poly([at(1.4, -0.9), at(14, -0.8), at(15.6, 0), at(14, 0.8), at(1.4, 0.9)], steel); edge(2.5, 13.5, 0.2, 0.2); break;
+    case 'sword': line(-3, 0, 1.4, '#4a2a1a'); line(-3.6, -3.2, 1.8, gold, 'metal'); line(0.8, 1.2, 4.2, gold, 'metal'); poly([at(1.4, -0.9), at(14, -0.8), at(15.6, 0), at(14, 0.8), at(1.4, 0.9)], steel); edge(2.5, 13.5, 0.2, 0.2); flat(B); { const A = at(2.5, -0.3), Bp = at(12.5, -0.3); B.seg(A[0], A[1], Bp[0], Bp[1], 1, shade(steel, 0.62)); } break;
     case 'saber': line(-3, 0, 1.4, '#3a2a1a'); line(0.8, 1.2, 3.8, gold, 'metal'); poly([at(1.5, -0.9), at(12, -0.9), at(15.4, 0), at(17, 1.6), at(10, 1.6), at(1.5, 1.2)], steel); edge(2.5, 15, -0.5, 0.4); break;
     case 'knife': line(-2, 0, 1.3, '#4a2a1a'); poly([at(0.8, -0.9), at(7.4, -0.7), at(8.8, 0.6), at(0.8, 1)], steel); break;
     case 'club': B.next(); { const A = at(-3), Bp = at(13); B.limb(A, Bp, 2.4 * s, 3.8 * s, wood); } flat(B); for (const l of [6, 9.5]) { const A = at(l, -1.6), Bp = at(l + 0.6, 1.6); B.seg(A[0], A[1], Bp[0], Bp[1], 1, shade(wood, 0.6)); } break;
@@ -347,27 +367,16 @@ export const ANIMS = {
 };
 export const ANIM_NAMES = Object.keys(ANIMS);
 
-// every frame of every animation of a look, packed into one canvas (rows of 12)
-export const COLS = 12;
-const sheetCache = new Map();
-export function sheetFor(L) {
-  const key = L.key || JSON.stringify(L);
-  if (sheetCache.has(key)) return sheetCache.get(key);
-  const list = []; for (const n of ANIM_NAMES) ANIMS[n].forEach((f, i) => list.push([n, i, f]));
-  const rows = Math.ceil(list.length / COLS), cv = document.createElement('canvas'); cv.width = COLS * FW; cv.height = rows * FH;
-  const ctx = cv.getContext('2d'), idx = {};
-  list.forEach(([n, i, f], k) => { const px = drawFrame(L, f.o), im = new ImageData(px, FW, FH); ctx.putImageData(im, (k % COLS) * FW, Math.floor(k / COLS) * FH); (idx[n] ||= [])[i] = k; });
-  const S = { canvas: cv, idx, cols: COLS, rows, n: list.length };
-  sheetCache.set(key, S); return S;
-}
+// one frame of a look as a canvas
+export function frameCanvas(L, anim, i) { const px = drawFrame(L, ANIMS[anim][i].o), c = document.createElement('canvas'); c.width = FW; c.height = FH; c.getContext('2d').putImageData(new ImageData(px, FW, FH), 0, 0); return c; }
 // a single still (for menus): a square around the figure, at its own pixels
 export function stillCanvas(L, anim = 'stand', i = 0) {
   const px = drawFrame(L, ANIMS[anim][i].o), c = document.createElement('canvas'); c.width = FW; c.height = FH; c.getContext('2d').putImageData(new ImageData(px, FW, FH), 0, 0);
-  const n = 124, o = document.createElement('canvas'); o.width = o.height = n; o.getContext('2d').drawImage(c, OX - n / 2, OY + 6 - n, n, n, 0, 0, n, n); return o;
+  const n = 186, o = document.createElement('canvas'); o.width = o.height = n; o.getContext('2d').drawImage(c, OX - n / 2, OY + 6 - n, n, n, 0, 0, n, n); return o;
 }
 // a head-and-shoulders crop for dialogue
 export function portrait(L) {
   const px = drawFrame(L, ANIMS.stand[0].o), hc = lastHead, c = document.createElement('canvas'); c.width = FW; c.height = FH; c.getContext('2d').putImageData(new ImageData(px, FW, FH), 0, 0);
-  const k = L.size || 1, w = Math.round(46 * k), h = Math.round(43 * k), o = document.createElement('canvas'); o.width = w; o.height = h;
+  const k = (L.size || 1) * 1.5, w = Math.round(46 * k), h = Math.round(43 * k), o = document.createElement('canvas'); o.width = w; o.height = h;
   o.getContext('2d').drawImage(c, Math.round(hc[0] - w / 2 + 2 * k), Math.round(hc[1] - 19 * k), w, h, 0, 0, w, h); return o;
 }

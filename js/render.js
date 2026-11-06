@@ -6,7 +6,7 @@ import { RenderPass } from '../lib/addons/RenderPass.js';
 import { UnrealBloomPass } from '../lib/addons/UnrealBloomPass.js';
 import { OutputPass } from '../lib/addons/OutputPass.js';
 import { ShaderPass } from '../lib/addons/ShaderPass.js';
-import { sheetFor, ANIMS, FW, FH, OY } from './art.js';
+import { frameCanvas, ANIMS, ANIM_NAMES, FW, FH, OY, PPU } from './art.js';
 export { THREE };
 export const PX = 1 / 16;
 
@@ -74,13 +74,28 @@ export function createView(canvas) {
 }
 
 // ---------------------------------------------------------------- people: one textured plane each, standing upright
-const texCache = new Map();
-function sheetTex(L) {
-  const S = sheetFor(L); let t = texCache.get(S);
-  if (!t) { t = new THREE.CanvasTexture(S.canvas); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace; texCache.set(S, t); }
-  return { S, t };
+// Each frame of a look is its own small texture, drawn the first time it is needed; the rest of a look's frames
+// are filled in a few at a time between screen frames (prefillLooks). At most 28 looks are kept.
+const lookCache = new Map(), pending = [];
+function lookEntry(L) {
+  const key = L.key || JSON.stringify(L); let E = lookCache.get(key);
+  if (E) { lookCache.delete(key); lookCache.set(key, E); return E; }
+  E = { L, tex: new Map(), todo: [] }; for (const n of ANIM_NAMES) ANIMS[n].forEach((f, i) => E.todo.push([n, i]));
+  lookCache.set(key, E); pending.push(E);
+  while (lookCache.size > 28) { const [k0, E0] = lookCache.entries().next().value; lookCache.delete(k0); for (const t of E0.tex.values()) t.dispose(); }
+  return E;
 }
-const SPX = PX / 2;   // people are drawn at twice the pixels of the scenery
+function frameTex(E, anim, i) {
+  const a = ANIMS[anim] ? anim : 'stand', n = ANIMS[a].length, k = a + ':' + (i % n);
+  let t = E.tex.get(k);
+  if (!t) { t = new THREE.CanvasTexture(frameCanvas(E.L, a, i % n)); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace; E.tex.set(k, t); }
+  return t;
+}
+export function prefillLooks(ms = 3) {
+  const t0 = performance.now();
+  while (pending.length && performance.now() - t0 < ms) { const E = pending[0], f = E.todo.pop(); if (!f) { pending.shift(); continue; } frameTex(E, f[0], f[1]); }
+}
+const SPX = 1 / PPU;   // people are drawn at three times the pixels of the scenery
 const planeGeo = new THREE.PlaneGeometry(FW * SPX, FH * SPX); planeGeo.translate(0, (FH * SPX) / 2 - (FH - OY) * SPX, 0);   // the feet at the origin
 const blobTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 2, 32, 32, 30); g.addColorStop(0, 'rgba(0,0,0,0.55)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); const t = new THREE.CanvasTexture(c); return t; })();
 const blobGeo = new THREE.PlaneGeometry(1, 1); blobGeo.rotateX(-Math.PI / 2);
@@ -90,25 +105,22 @@ export class Body {
     this.blob = new THREE.Mesh(blobGeo, new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false })); this.blob.renderOrder = 1; scene.add(this.blob);
   }
   setLook(L) {
-    const { S, t } = sheetTex(L); this.S = S; this.L = L;
-    const tex = t.clone(); tex.needsUpdate = true; tex.repeat.set(1 / S.cols, 1 / S.rows);
-    if (this.mesh) { this.mesh.material.map.dispose(); this.mesh.material.map = tex; this.mesh.material.emissiveMap = tex; this.tex = tex; return; }
-    this.tex = tex;
-    const mat = new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide, emissive: new THREE.Color('#383838'), emissiveMap: tex });
+    this.E = lookEntry(L); this.L = L; const t = frameTex(this.E, 'stand', 0); this.cur = t;
+    if (this.mesh) { const m = this.mesh.material; m.map = t; m.emissiveMap = t; this.mesh.customDepthMaterial.map = t; return; }
+    const mat = new THREE.MeshLambertMaterial({ map: t, alphaTest: 0.5, side: THREE.DoubleSide, emissive: new THREE.Color('#383838'), emissiveMap: t });
     this.mesh = new THREE.Mesh(planeGeo, mat); this.mesh.castShadow = true;
-    this.mesh.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: tex, alphaTest: 0.5 });
+    this.mesh.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: t, alphaTest: 0.5 });
     this.scene.add(this.mesh);
   }
   frame(anim, i, face) {
-    const S = this.S, k = (S.idx[anim] || S.idx.stand)[i % (S.idx[anim] || S.idx.stand).length];
-    const col = k % S.cols, row = Math.floor(k / S.cols);
-    this.tex.offset.set(col / S.cols, 1 - (row + 1) / S.rows);
+    const t = frameTex(this.E, anim, i);
+    if (t !== this.cur) { this.cur = t; const m = this.mesh.material; m.map = t; m.emissiveMap = t; this.mesh.customDepthMaterial.map = t; }
     this.mesh.scale.x = face < 0 ? -1 : 1;
   }
   place(x, y, z, tiltX = -0.32) { this.mesh.position.set(x, y, z); this.mesh.rotation.x = tiltX; this.blob.position.set(x, 0.02, z + 0.05); const k = Math.max(0.4, 1 - y * 0.12) * (this.L.size || 1); this.blob.scale.set(1.5 * k, 1, 0.6 * k); }
   flash(on, col = '#ffffff') { this.mesh.material.emissive.set(on ? col : '#383838'); }
   visible(v) { this.mesh.visible = v; this.blob.visible = v; }
-  dispose() { this.scene.remove(this.mesh); this.scene.remove(this.blob); this.mesh.material.map.dispose(); this.mesh.material.dispose(); this.blob.material.dispose(); }
+  dispose() { this.scene.remove(this.mesh); this.scene.remove(this.blob); this.mesh.material.dispose(); this.mesh.customDepthMaterial.dispose(); this.blob.material.dispose(); }
 }
 export const animLen = (a) => (ANIMS[a] || ANIMS.stand).length;
 export const animDur = (a, i) => (ANIMS[a] || ANIMS.stand)[i % animLen(a)].t;

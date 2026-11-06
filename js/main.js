@@ -1,7 +1,7 @@
 // 亂世豪俠傳: the game. A hero walks the road of the late Han from town to town, fighting whoever stands in the
 // way, eating to grow strong, learning techniques from the great fighters of the age and putting four of them in
 // hand. Everything the player has is in H (saved to localStorage); everything on the road is in the World.
-import { createView, THREE } from './render.js';
+import { createView, THREE, prefillLooks } from './render.js';
 import { Stage, D } from './stage.js';
 import { World } from './fight.js';
 import { AI } from './ai.js';
@@ -588,7 +588,7 @@ function frame(now) {
   pollPad(now);
   if (titleScene) { W.update(dt, null); G.camX = 25 + Math.sin(G.t * 0.15) * 3; V.camera.position.set(G.camX, 8.6, D + 19); V.camera.lookAt(G.camX, 2.2, D * 0.3); V.tilt(0.42, 0.18, 2.8); stage.update(dt, G.t, G.camX); }
   else if (G.mode === 'play' || G.mode === 'dead') G.update(dt);
-  V.render();
+  V.render(); prefillLooks(3);
   requestAnimationFrame(frame);
 }
 try { const v = JSON.parse(localStorage.getItem('sanguobrawl.vol') || 'null'); if (v) { audio.vol = v[0]; audio.music = v[1]; } } catch (e) {}
