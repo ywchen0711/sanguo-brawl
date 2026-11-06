@@ -6,7 +6,7 @@
 // letters: H hair, G hair light, h hair shade | S skin, L skin light, s skin shade, t skin deep
 //          A hat, B hat light, a hat shade | R second colour, r its shade | Y gold, y gold shade
 //          D beard, F beard light, d beard shade | z stubble | . nothing
-export const ANCHOR = [8.5, 15.5];
+export const ANCHOR = [9, 16.5];
 
 const short = [
   '......hhhhh.....',
@@ -21,14 +21,16 @@ const short = [
   '.hhhHHtsSSSSSSSS',
   '..hhHHtsSSSSSSSS',
   '..hhhHssSSSSSSS.',
-  '...hhhssSSSSSS..',
-  '....hhhsSSSSS...',
-  '......ssSSSS....',
-  '........sss.....',
+  '...hhhssSSSSSSS.',
+  '....hhhsSSSSSSS.',
+  '.....hhssSSSSSS.',
+  '.......ssSSSSs..',
+  '.........ssss...',
 ];
 const long = short.slice(0, 14).concat([
-  '..hhhhssSSSS....',
-  '..hHhh..sss.....',
+  '..hhhhhssSSSSSS.',
+  '..hHhh.ssSSSSs..',
+  '..hHhh...ssss...',
   '..hHhh..........',
   '..hHhh..........',
   '..hhHh..........',
@@ -48,10 +50,11 @@ const bald = [
   '.hhhsStsSSSSSSSS',
   '..hhsStsSSSSSSSS',
   '..hhhsssSSSSSSS.',
-  '...hhhssSSSSSS..',
-  '....hhssSSSSS...',
-  '......ssSSSS....',
-  '........sss.....',
+  '...hhhssSSSSSSS.',
+  '....hhssSSSSSSS.',
+  '.....hhssSSSSSS.',
+  '.......ssSSSSs..',
+  '.........ssss...',
 ];
 export const HEADS = { short, long, bald };
 

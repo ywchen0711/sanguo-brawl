@@ -1,16 +1,16 @@
 // 亂世豪俠傳: the game. A hero walks the road of the late Han from town to town, fighting whoever stands in the
 // way, eating to grow strong, learning techniques from the great fighters of the age and putting four of them in
 // hand. Everything the player has is in H (saved to localStorage); everything on the road is in the World.
-import { createView, THREE, prefillLooks } from './render.js?v=8';
-import { Stage, D } from './stage.js?v=8';
-import { World } from './fight.js?v=8';
-import { AI } from './ai.js?v=8';
-import { UI, esc } from './ui.js?v=8';
-import { audio } from './audio.js?v=8';
-import { LOOKS, lookOf } from './looks.js?v=8';
-import { portrait, stillCanvas } from './art.js?v=8';
-import { MOVES, TECHS } from './moves.js?v=8';
-import { HEROES, ALLY_OF, FOES, BOSSES, MASTERS, FOOD, ITEMS, GEAR, SLOT_N, ZONES, QUEST, RUMORS } from './data.js?v=8';
+import { createView, THREE, prefillLooks } from './render.js?v=9';
+import { Stage, D } from './stage.js?v=9';
+import { World } from './fight.js?v=9';
+import { AI } from './ai.js?v=9';
+import { UI, esc } from './ui.js?v=9';
+import { audio } from './audio.js?v=9';
+import { LOOKS, lookOf } from './looks.js?v=9';
+import { portrait, stillCanvas } from './art.js?v=9';
+import { MOVES, TECHS } from './moves.js?v=9';
+import { HEROES, ALLY_OF, FOES, BOSSES, MASTERS, FOOD, ITEMS, GEAR, SLOT_N, ZONES, QUEST, RUMORS } from './data.js?v=9';
 
 const V = createView(document.getElementById('view')), stage = new Stage(V), ui = new UI();
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), pick = (a) => a[Math.floor(Math.random() * a.length)], rand = (a, b) => a + Math.random() * (b - a);
@@ -58,7 +58,7 @@ const G = {
     for (const [gx, type, n, lvb] of Z.foes || []) for (let i = 0; i < n; i++) this.makeFoe(type, Z.lv + lvb + (Math.random() < 0.3 ? 1 : 0), gx + rand(-2.2, 2.2) + i * 0.6, rand(0.4, D - 0.4));
     if (Z.kind === 'town') this.townsfolk(Z);
     this.props(Z);
-    this.camX = clamp(x, W.x0 + 9, W.x1 - 9);
+    this.camX = clamp(x, W.x0 + 13.5, W.x1 - 13.5);
     audio.play(Z.kind === 'town' ? 'town' : Z.lv > 14 && Z.mood === 'mist' ? 'calm' : 'field');
     await ui.fade(0, 300); this.busy = false;
     ui.banner(`<div class="bz">${Z.name}</div><div class="bl">${Z.kind === 'town' ? '城鎮' : '推薦等級 ' + Z.lv}</div>`);
@@ -113,12 +113,12 @@ const G = {
       else for (const fk of Z.forks || []) if (Math.abs(h.x - fk.x) < 1.6 && ((!fk.down && h.z < 0.35 && h.intent.mz < 0) || (fk.down && h.z > D - 0.35 && h.intent.mz > 0))) { this.enter(fk.to, 'fork'); break; }
     }
     // the camera follows, held inside the stretch (or the arena)
-    const half = V.portrait ? 4.5 : 9.5, x0 = W.x0 + half, x1 = W.x1 - half;
+    const half = V.portrait ? 6.75 : 14.25, x0 = W.x0 + half, x1 = W.x1 - half;
     const tx = x1 < x0 ? (W.x0 + W.x1) / 2 : clamp(h.x + h.f * 1.2, x0, x1); this.camX += (tx - this.camX) * Math.min(1, dt * 4);
     let sx = 0, sy = 0; if (W.shake > 0) { W.shake -= dt; sx = (Math.random() - 0.5) * W.shake * 0.8; sy = (Math.random() - 0.5) * W.shake * 0.6; }
-    const cz = V.portrait ? 26 : 21, cy = V.portrait ? 11 : 9.4;
-    V.camera.position.set(this.camX + sx, cy + sy, D + cz); V.camera.lookAt(this.camX + sx, 1.5 + sy, D * 0.3);
-    V.tilt(0.46, 0.21, 2.6);
+    const cz = V.portrait ? 40.8 : 33.3, cy = V.portrait ? 15.75 : 13.35;   // half again as far as it was
+    V.camera.position.set(this.camX + sx, cy + sy, D + cz); V.camera.lookAt(this.camX + sx, 2.6 + sy, -1.2);
+    V.tilt(0.46, 0.26, 2.2);
     if (V.grade.uniforms.flash.value > 0) V.grade.uniforms.flash.value = Math.max(0, V.grade.uniforms.flash.value - dt * 2);
     stage.update(dt, this.t, this.camX);
     this.hud(dt);
@@ -586,7 +586,7 @@ let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now; G.t += dt;
   pollPad(now);
-  if (titleScene) { W.update(dt, null); G.camX = 25 + Math.sin(G.t * 0.15) * 3; V.camera.position.set(G.camX, 8.6, D + 19); V.camera.lookAt(G.camX, 2.2, D * 0.3); V.tilt(0.42, 0.18, 2.8); stage.update(dt, G.t, G.camX); }
+  if (titleScene) { W.update(dt, null); G.camX = 25 + Math.sin(G.t * 0.15) * 3; V.camera.position.set(G.camX, 11.8, D + 30.3); V.camera.lookAt(G.camX, 2.2, D * 0.3); V.tilt(0.42, 0.24, 2.4); stage.update(dt, G.t, G.camX); }
   else if (G.mode === 'play' || G.mode === 'dead') G.update(dt);
   V.render(); prefillLooks(3);
   requestAnimationFrame(frame);

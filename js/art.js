@@ -11,7 +11,7 @@
 export const FW = 160, FH = 168;          // frame size in pixels; the feet stand at (80, 152)
 export const OX = 80, OY = 152;
 export const PPU = 32;                     // pixels to a unit of the world
-import { HEADS, HATS, BEARDS, ANCHOR } from './heads.js?v=8';
+import { HEADS, HATS, BEARDS, ANCHOR } from './heads.js?v=9';
 const R = Math.PI / 180;
 
 const hexRGB = (c) => { const n = parseInt(c.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
@@ -169,7 +169,8 @@ export function drawFrame(L, pose) {
   const tor = [T(-7.4 - fat, -1), T(-6.2 - fat, 7), T(-6.4 - fat, 12), T(-8.2 - fat * 0.5, 19), T(-8, 23.6), T(-4.6, 27), T(4.4, 26.8), T(8 + fat, 23.4), T(8.6 + fat * 2, 18.6), T(6.8 + fat * 3, 13), T(6.2 + fat * 6.5, 7), T(7.4 + fat * 3, -1)];
   B.next(); B.poly(tor, L.bare ? skin : robe);
   // the neck
-  B.next(); B.limb(T(0, 25), add(neck, hup, 5 * s), 5.6 * s, 5.2 * s, skin);
+  // the neck, in the shadow of the chin
+  B.next(); B.limb(T(0, 25), add(neck, hup, 5 * s), 5.6 * s, 5.2 * s, mix(shade(skin, 0.74), '#6a3a5a', 0.12));
   if (L.bare) {
     flat(B); const ln = shade(skin, 0.72);
     B.seg(...T(1.5, 19.5), ...T(7 + fat, 17.5), 0.9, ln); B.seg(...T(4.5, 15), ...T(4.6 + fat * 3, 9.5), 0.8, ln);       // chest and belly
@@ -199,9 +200,12 @@ export function drawFrame(L, pose) {
   }
   if (L.beltGold || armor) { B.next('metal'); B.disc(...T(2.6 + fat * 5, 8.4), 2.6 * s, '#e0b040'); B.next('metal'); B.disc(...T(2.6 + fat * 5, 8.4), 1 * s, '#fff0b0'); }
   // ---- the head
-  drawHeadT(B, L, headC, P, ha, false);
   // ---- the weapon in the front hand, gripped by it; the front arm over the body
-  drawArm(FA, false, () => { if (L.wpn && P.w != null) drawWeapon(B, L.wpn, FA.hand, P.w, s * 2, false, L.wpnC); });
+  const frontArm = () => drawArm(FA, false, () => { if (L.wpn && P.w != null) drawWeapon(B, L.wpn, FA.hand, P.w, s * 2, false, L.wpnC); });
+  frontArm();
+  // the head over the front shoulder, so the chin shows; an arm raised up past the shoulder goes over the head again
+  drawHeadT(B, L, headC, P, ha, false);
+  if (Math.min(FA.elb[1], FA.wr[1]) < shF[1] - 2 * s) frontArm();
   if (L.beard === 'long') drawHeadT(B, L, headC, P, ha, true);
   if (L.shield) { const c = FA.wr; B.next(); B.disc(c[0] + 2, c[1], 8.6 * s, L.shield); flat(B); B.disc(c[0] + 2, c[1], 2.6 * s, '#d8c070'); }
   return B.finish(L.outline);
@@ -340,6 +344,8 @@ function drawHeadT(B, L, c, P, ang, beardOnly) {
   g = scale2x(g);
   const E = (x, y, ch) => g.set(x + ',' + y, ch);
   if (!beardOnly) {
+    // a jaw line: the bottom edge of the face takes the deep skin tone, so the chin stands off the neck
+    for (const [k, ch] of [...g]) { if (!'SLs'.includes(ch)) continue; const [x, y] = k.split(',').map(Number); if (x >= 14 && y >= 22 && !g.has(x + ',' + (y + 1))) E(x, y, 't'); }
     // the face, at the doubled size: eyes three pixels tall with a glint, a one-pixel brow, a hint of nose and mouth
     if (P.eye === 'closed' || P.eye === 'hurt') { for (const x of [19, 20, 21]) E(x, 21, 'e'); E(28, 21, 'e'); E(29, 21, 'e'); if (P.eye === 'hurt') { E(19, 20, 'e'); E(29, 20, 'e'); } }
     else {
@@ -350,8 +356,8 @@ function drawHeadT(B, L, c, P, ang, beardOnly) {
     else if (!L.lashes) { for (const x of [19, 20, 21, 22]) E(x, 16, 'h'); E(28, 16, 'h'); E(29, 16, 'h'); }
     else { for (const x of [20, 21, 22]) E(x, 16, 's'); E(29, 16, 's'); }
     if (g.get('30,22') === 'S') E(30, 22, 's');                                            // under the nose
-    if (P.mouth) { for (const [x, y] of [[24, 24], [25, 24], [24, 25], [25, 25], [24, 26]]) E(x, y, 'm'); E(25, 24, 'n'); }
-    else if (!beard || L.beard === 'stubble') { E(24, 25, L.lips ? 'p' : 't'); E(25, 25, L.lips ? 'p' : 't'); }
+    if (P.mouth) { for (const [x, y] of [[25, 25], [26, 25], [25, 26], [26, 26], [25, 27]]) E(x, y, 'm'); E(26, 25, 'n'); }
+    else if (!beard || L.beard === 'stubble') { E(25, 26, L.lips ? 'p' : 't'); E(26, 26, L.lips ? 'p' : 't'); }
     if (L.blush) { E(25, 22, 'q'); E(26, 22, 'q'); }
     if (L.paint) for (let x = 18; x <= 27; x++) E(x, 23, 'w');
     if (L.hat === 'feathers') for (const [p0, p1, p2] of [[[18, -4], [26, -40], [-14, -34]], [[14, -4], [10, -32], [-20, -16]]]) {

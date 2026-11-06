@@ -2,10 +2,10 @@
 // lands. Actors move on the ground plane (x along the road, z in depth) and jump in y. A move is played frame by
 // frame (moves.js); its hits are checked on the frame they belong to. Thrown people and things, projectiles,
 // sparks and the screen's shake and freeze all live here too.
-import { THREE, Body, PX, cutout, cutoutMesh } from './render.js?v=8';
-import { MOVES, durs } from './moves.js?v=8';
-import { ANIMS } from './art.js?v=8';
-import { D } from './stage.js?v=8';
+import { THREE, Body, PX, cutout, cutoutMesh } from './render.js?v=9';
+import { MOVES, durs } from './moves.js?v=9';
+import { ANIMS } from './art.js?v=9';
+import { D } from './stage.js?v=9';
 
 const G = 34;                         // gravity
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
