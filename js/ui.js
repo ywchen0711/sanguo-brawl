@@ -1,6 +1,6 @@
 // Menus, dialogue, notices and the heads-up display, all in HTML over the canvas. A menu is a list driven by the
 // arrow keys (or a tap); dialogue waits for a key. Every opened panel is a promise.
-import { audio } from './audio.js?v=7';
+import { audio } from './audio.js?v=8';
 const $ = (s) => document.querySelector(s);
 export const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
 

@@ -4,13 +4,14 @@
 // and one away from it measure how far each pixel is from the part's lit and shaded edges, which turns into a
 // rounded, banded light; parts in front cast a small shadow on what lies behind, metal gets a hard glint,
 // shadows lean cool and lights lean warm, and the figure gets a dark coloured outline.
-// The people are HD-2D sprites, about three heads tall at 16 pixels to a unit of the world: the body comes from
-// the skeleton, the head is drawn by hand (heads.js), and every colour has only a few clean tones.
+// The people are HD-2D sprites, about three heads tall at 32 pixels to a unit of the world: the body comes from
+// the skeleton, the head is drawn by hand (heads.js) and doubled with Scale2x, then given its eyes, brows and
+// mouth at the finer size. Every colour has only a few clean tones; the outline is a dark shade of what it edges.
 // A look (L) says what the person wears; a sheet holds every frame of every animation for one look.
-export const FW = 80, FH = 84;            // frame size in pixels; the feet stand at (40, 76)
-export const OX = 40, OY = 76;
-export const PPU = 16;                     // pixels to a unit of the world
-import { HEADS, HATS, BEARDS, ANCHOR } from './heads.js?v=7';
+export const FW = 160, FH = 168;          // frame size in pixels; the feet stand at (80, 152)
+export const OX = 80, OY = 152;
+export const PPU = 32;                     // pixels to a unit of the world
+import { HEADS, HATS, BEARDS, ANCHOR } from './heads.js?v=8';
 const R = Math.PI / 180;
 
 const hexRGB = (c) => { const n = parseInt(c.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
@@ -25,7 +26,7 @@ const pack = (c) => { const [r, g, b] = hexRGB(c); return (r << 16) | (g << 8) |
 class Buf {
   constructor() { this.c = new Int32Array(FW * FH).fill(-1); this.p = new Int16Array(FW * FH); this.part = 1; this.meta = [{ k: 'vol' }, { k: 'vol' }]; }
   set(x, y, col) { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= FW || y >= FH) return; const i = y * FW + x; this.c[i] = col; this.p[i] = this.part; }
-  next(k = 'vol') { this.part++; this.meta[this.part] = { k, pat: null }; }
+  next(k = 'vol', pat = null) { this.part++; this.meta[this.part] = { k, pat: pat === 'scale' || pat === 'trim' || pat === 'stud' || pat === 'grain' ? pat : null }; }
   setp(x, y, col, part) { if (x < 0 || y < 0 || x >= FW || y >= FH) return; const i = y * FW + x; this.c[i] = col; this.p[i] = part; }
   disc(cx, cy, r, col) { const c = pack(col), r2 = r * r; for (let y = Math.floor(cy - r); y <= Math.ceil(cy + r); y++) for (let x = Math.floor(cx - r); x <= Math.ceil(cx + r); x++) { const dx = x - cx, dy = y - cy; if (dx * dx + dy * dy <= r2 + 0.25) this.set(x, y, c); } }
   seg(x0, y0, x1, y1, w, col) { const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) * 2)); for (let i = 0; i <= n; i++) { const t = i / n; this.disc(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, w / 2, col); } }
@@ -72,7 +73,7 @@ class Buf {
         else if (m.k === 'soft') f = n < -0.6 && span > 6 ? 0.88 : n > 0.75 && span > 6 ? 1.05 : 1;   // a face: lit, with one band of shade at its far edge
         else { f = 0.5 + lam * 0.62; f = band(f, BANDS, x, y, false); }
       }
-      if (m.pat === 'scale') { const row = Math.floor(y / 5), xx = x + (row % 2) * 3, yy = y % 5; if (yy === 4) f *= 0.72; else if (xx % 6 === 0) f *= 0.84; else if (yy === 1 && xx % 6 === 3) f *= 1.3; else if (yy === 0) f *= 1.08; }
+      if (m.pat === 'scale') { const row = Math.floor(y / 3), xx = x + (row % 2) * 2, yy = y % 3; if (yy === 2) f *= 0.8; else if (xx % 4 === 0) f *= 0.88; else if (yy === 0 && xx % 4 === 2) f *= 1.14; }
       else if (m.pat === 'fold') { const q = (x * 7 + Math.floor(y / 13) * 3) % 13; if (q === 0) f *= 0.84; else if (q === 1) f *= 1.06; }
       else if (m.pat === 'strand') { const a = Math.atan2(y - m.cy, x - m.cx) / R + (((x * 13 + y * 7) % 5) - 2) * 0.4, q = ((Math.floor(a / 5) % 4) + 4) % 4; if (q === 0) f *= 0.8; else if (q === 2) f *= 1.1; }
       else if (m.pat === 'trim') { const q = ((x >> 1) + (y >> 1)) % 3; if (q === 0) f *= 1.3; else if (q === 1 && ((x + y) & 1)) f *= 0.85; }
@@ -81,7 +82,7 @@ class Buf {
       // a part in front of this one, just toward the light, throws a little shadow on it
       if (!m.noShade) for (let t = 1; t <= 2; t++) { const j = at(x - t, y - t - (t >> 1)); if (j >= 0 && c[j] >= 0 && p[j] > k && !NC[p[j]]) { f *= 0.8; break; } }
       // a seam against what lies behind
-      if (!m.noSeam && (seam(i - W, y > 0, k) || seam(i - 1, x > 0, k) || seam(i + 1, x < W - 1, k) || seam(i + W, y < H - 1, k))) f *= 0.74;
+      if (!m.noSeam && (seam(i - W, y > 0, k) || seam(i - 1, x > 0, k) || seam(i + 1, x < W - 1, k) || seam(i + W, y < H - 1, k))) f *= 0.8;
       col[i] = tone(c[i], f);
     }
     const oc = pack(outline || '#1a1018');
@@ -89,7 +90,7 @@ class Buf {
       const i = y * W + x, o = i * 4;
       if (c[i] >= 0) { const v = col[i]; out[o] = (v >> 16) & 255; out[o + 1] = (v >> 8) & 255; out[o + 2] = v & 255; out[o + 3] = 255; continue; }
       const n = x > 0 && c[i - 1] >= 0 ? i - 1 : x < W - 1 && c[i + 1] >= 0 ? i + 1 : y > 0 && c[i - W] >= 0 ? i - W : y < H - 1 && c[i + W] >= 0 ? i + W : -1;
-      if (n >= 0) { const v = tone(c[n], 0.3), m = (a, b) => Math.round(a * 0.45 + b * 0.55); out[o] = m((v >> 16) & 255, (oc >> 16) & 255); out[o + 1] = m((v >> 8) & 255, (oc >> 8) & 255); out[o + 2] = m(v & 255, oc & 255); out[o + 3] = 255; }
+      if (n >= 0) { const v = tone(col[n], 0.45), m = (a, b) => Math.round(a * 0.72 + b * 0.28); out[o] = m((v >> 16) & 255, (oc >> 16) & 255); out[o + 1] = m((v >> 8) & 255, (oc >> 8) & 255); out[o + 2] = m(v & 255, oc & 255); out[o + 3] = 255; }
     }
     return out;
   }
@@ -103,22 +104,22 @@ const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
 // defaults every pose starts from
 const BASE = { bx: 0, by: 0, lean: 4, hd: [0, 0], fa: [20, 60], ba: [-15, 50], fl: [10, 8], bl: [-10, 6], w: 120, w2: null, eye: 'open', mouth: 0, tilt: 0, fx: 0 };
-export let lastHead = [OX, 30];
+export let lastHead = [OX, 60];
 
 export function drawFrame(L, pose) {
-  const P = { ...BASE, ...pose }, S = L.size || 1, s = S * 0.45, B = new Buf();
+  const P = { ...BASE, ...pose }, S = L.size || 1, s = S * 0.9, B = new Buf();
   const fat = L.fat ? 1 : 0, skin = L.skin || '#f0c49a', robe = L.robe || '#4a6a9a', robe2 = L.robe2 || shade(robe, 0.7);
   const armor = L.bare ? null : L.armor, pants = L.pants || shade(robe, 0.6), boots = L.boots || '#3a2a22', trim = L.trim || robe2;
   // pelvis, the legs below it (the poses were made at 16.5 old units of leg; these legs are 41 pixels)
-  const thigh = 6.2 * S, shin = 5.8 * S;
-  const pel = [OX + P.bx * 0.9 * S, OY - (thigh + shin + 1.4 * S) + P.by * 0.8 * S];
-  const leg = (side, [a, k]) => { const hip = [pel[0] + side * 3 * s, pel[1] + 0.5]; const knee = add(hip, dirOf(a), thigh); const b = a - k, ank = add(knee, dirOf(b), shin); const fwd = [Math.cos(b * R), -Math.sin(b * R)]; return { hip, knee, ank, b, fwd, dn: dirOf(b) }; };
+  const thigh = 12.4 * S, shin = 11.6 * S;
+  const pel = [OX + P.bx * 1.8 * S, OY - (thigh + shin + 2.8 * S) + P.by * 1.6 * S];
+  const leg = (side, [a, k]) => { const hip = [pel[0] + side * 3 * s, pel[1] + 1]; const knee = add(hip, dirOf(a), thigh); const b = a - k, ank = add(knee, dirOf(b), shin); const fwd = [Math.cos(b * R), -Math.sin(b * R)]; return { hip, knee, ank, b, fwd, dn: dirOf(b) }; };
   const FL = leg(1, P.fl), BL = leg(-1, P.bl);
   const lean = P.lean, up = [Math.sin(lean * R), -Math.cos(lean * R)], fw = [Math.cos(lean * R), Math.sin(lean * R)];
   const T = (u, v) => [pel[0] + (fw[0] * u + up[0] * v) * s, pel[1] + (fw[1] * u + up[1] * v) * s];   // the body's own frame: u forward, v up
   const neck = T(0.6, 27.5);
   const ha = lean * 0.55 + P.tilt, hup = [Math.sin(ha * R), -Math.cos(ha * R)];
-  const headC = [neck[0] + hup[0] * 1.6 + P.hd[0] * 0.9 * S, neck[1] + hup[1] * 1.6 + P.hd[1] * 0.9 * S];
+  const headC = [neck[0] + hup[0] * 3.2 + P.hd[0] * 1.8 * S, neck[1] + hup[1] * 3.2 + P.hd[1] * 1.8 * S];
   lastHead = headC;
   const shF = T(5, 23.2), shB = T(-5.6, 23.6);
   const arm = (sh, [a, e]) => { const d1 = dirOf(a), elb = add(sh, d1, 10.5 * s), d2 = dirOf(a + e), wr = add(elb, d2, 9 * s); return { sh, elb, wr, hand: add(wr, d2, 2.2 * s), ang: a + e, d2 }; };
@@ -305,6 +306,18 @@ function drawHead(B, L, c, k, P, ang) {
 }
 
 // ---------------------------------------------------------------- a hand-drawn head (heads.js) put on at the neck
+// Scale2x: every letter becomes four, the corners taking a neighbour's letter where two edges meet, so the doubled
+// head keeps smooth diagonals instead of turning blocky
+function scale2x(g) {
+  let x0 = 99, x1 = -99, y0 = 99, y1 = -99; for (const k of g.keys()) { const [x, y] = k.split(',').map(Number); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  const at = (x, y) => g.get(x + ',' + y) || '.', o = new Map();
+  for (let y = y0 - 1; y <= y1 + 1; y++) for (let x = x0 - 1; x <= x1 + 1; x++) {
+    const P = at(x, y), A = at(x, y - 1), B = at(x + 1, y), C = at(x - 1, y), D = at(x, y + 1);
+    const e = [C === A && C !== D && A !== B ? A : P, A === B && A !== C && B !== D ? B : P, D === C && D !== B && C !== A ? C : P, B === D && B !== A && D !== C ? D : P];
+    e.forEach((ch, q) => { if (ch !== '.') o.set((x * 2 + (q & 1)) + ',' + (y * 2 + (q >> 1)), ch); });
+  }
+  return o;
+}
 function drawHeadT(B, L, c, P, ang, beardOnly) {
   // black hair reads as a dark slate, the way pixel games draw it, so its light and shade still show
   const dk = (col) => hexRGB(col).reduce((a, b) => a + b, 0) < 240, lift = (col) => (dk(col) ? mix(col, '#3c4260', 0.42) : col);
@@ -314,31 +327,42 @@ function drawHeadT(B, L, c, P, ang, beardOnly) {
     S: skin, L: shade(skin, 1.08), s: mix(shade(skin, 0.82), '#7a4a6a', 0.12), t: shade(skin, 0.64),
     A: hc, B: shade(hc, 1.3), a: shade(hc, 0.64), R: h2, r: shade(h2, 0.64), k: shade(h2, 0.35), Y: '#e8c050', y: '#a07828',
     D: bc, F: mix(bc, '#a8b2d0', 0.3), d: shade(bc, 0.62), z: mix(skin, '#3a3030', 0.32),
-    e: '#1c1210', m: '#5a2020', p: L.lips || shade(skin, 0.64), q: mix(skin, '#ff8080', 0.3), w: L.paint || '#e8e0d0',
+    e: '#1c1210', i: mix(L.eyeC || '#5a3a2a', '#ffffff', 0.35), m: '#5a2020', n: '#e8e0d8', p: L.lips || shade(skin, 0.7), q: mix(skin, '#ff8080', 0.28), w: L.paint || '#e8e0d0',
   };
-  const g = new Map(), put = (rows, y0) => rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (r[i] !== '.') g.set(i + ',' + (y0 + j), r[i]); });
-  const E = (x, y, ch) => g.set(x + ',' + y, ch);
+  let g = new Map(); const put = (rows, y0) => rows.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (r[i] !== '.') g.set(i + ',' + (y0 + j), r[i]); });
+  const beard = L.beard && L.beard !== 'none' && L.beard !== 'long' ? BEARDS[L.beard] : null;
   if (!beardOnly) {
     put(L.hat === 'bald' ? HEADS.bald : L.longHair ? HEADS.long : HEADS.short, 0);
-    if (P.eye === 'closed' || P.eye === 'hurt') { E(9, 10, 'e'); E(10, 10, 'e'); E(14, 10, 'e'); }
-    else { E(10, 9, 'e'); E(10, 10, 'e'); E(14, 9, 'e'); E(14, 10, 'e'); if (L.lashes) E(11, 9, 'e'); }
-    if (L.fierce) { E(9, 7, 'h'); E(10, 7, 'h'); E(11, 8, 'h'); E(13, 7, 'h'); E(14, 7, 'h'); } else if (!L.lashes) { E(9, 7, 'h'); E(10, 7, 'h'); E(14, 7, 'h'); }
-    const beard = L.beard && L.beard !== 'none' && L.beard !== 'long' ? BEARDS[L.beard] : null;
-    if (P.mouth) { E(12, 12, 'm'); E(12, 13, 'm'); } else if (!beard || L.beard === 'stubble') E(12, 12, L.lips ? 'p' : 't');
-    if (L.blush) E(13, 11, 'q');
-    if (L.paint) for (let x = 9; x <= 13; x++) E(x, 11, 'w');
     if (beard && !(P.mouth && L.beard === 'stubble')) put(beard[1], beard[0]);
-    if (L.beard === 'long') for (let x = 10; x <= 14; x++) E(x, 12, 'D');
+    if (L.beard === 'long') put(['..........DDDDD.'], 12);
     const hat = HATS[L.hat]; if (hat) put(hat[1], hat[0]);
-    if (L.hat === 'feathers') for (const [p0, p1, p2] of [[[9, -2], [13, -20], [-7, -17]], [[7, -2], [5, -16], [-10, -8]]]) {
-      for (let i = 0; i <= 44; i++) { const t = i / 44, x = (1 - t) ** 2 * p0[0] + 2 * (1 - t) * t * p1[0] + t * t * p2[0], y = (1 - t) ** 2 * p0[1] + 2 * (1 - t) * t * p1[1] + t * t * p2[1]; E(Math.round(x), Math.round(y), i % 6 < 2 ? 'k' : i % 6 < 4 ? 'R' : 'r'); }
-    }
   } else put(BEARDS.long[1], BEARDS.long[0]);
+  g = scale2x(g);
+  const E = (x, y, ch) => g.set(x + ',' + y, ch);
+  if (!beardOnly) {
+    // the face, at the doubled size: eyes three pixels tall with a glint, a one-pixel brow, a hint of nose and mouth
+    if (P.eye === 'closed' || P.eye === 'hurt') { for (const x of [19, 20, 21]) E(x, 21, 'e'); E(28, 21, 'e'); E(29, 21, 'e'); if (P.eye === 'hurt') { E(19, 20, 'e'); E(29, 20, 'e'); } }
+    else {
+      for (const y of [19, 20, 21]) { E(20, y, 'e'); E(21, y, 'e'); E(29, y, 'e'); } E(21, 19, 'i'); E(28, 20, 'e'); E(28, 21, 'e');
+      if (L.lashes) { E(22, 19, 'e'); E(19, 19, 'e'); E(30, 19, 'e'); }
+    }
+    if (L.fierce) { E(18, 15, 'h'); E(19, 15, 'h'); E(20, 16, 'h'); E(21, 16, 'h'); E(22, 17, 'h'); E(27, 16, 'h'); E(28, 16, 'h'); E(29, 15, 'h'); }
+    else if (!L.lashes) { for (const x of [19, 20, 21, 22]) E(x, 16, 'h'); E(28, 16, 'h'); E(29, 16, 'h'); }
+    else { for (const x of [20, 21, 22]) E(x, 16, 's'); E(29, 16, 's'); }
+    if (g.get('30,22') === 'S') E(30, 22, 's');                                            // under the nose
+    if (P.mouth) { for (const [x, y] of [[24, 24], [25, 24], [24, 25], [25, 25], [24, 26]]) E(x, y, 'm'); E(25, 24, 'n'); }
+    else if (!beard || L.beard === 'stubble') { E(24, 25, L.lips ? 'p' : 't'); E(25, 25, L.lips ? 'p' : 't'); }
+    if (L.blush) { E(25, 22, 'q'); E(26, 22, 'q'); }
+    if (L.paint) for (let x = 18; x <= 27; x++) E(x, 23, 'w');
+    if (L.hat === 'feathers') for (const [p0, p1, p2] of [[[18, -4], [26, -40], [-14, -34]], [[14, -4], [10, -32], [-20, -16]]]) {
+      for (let i = 0; i <= 90; i++) { const t = i / 90, x = (1 - t) ** 2 * p0[0] + 2 * (1 - t) * t * p1[0] + t * t * p2[0], y = (1 - t) ** 2 * p0[1] + 2 * (1 - t) * t * p1[1] + t * t * p2[1], ch = i % 10 < 3 ? 'k' : i % 10 < 7 ? 'R' : 'r'; E(Math.round(x), Math.round(y), ch); if (i < 70) E(Math.round(x), Math.round(y) + 1, ch); }
+    }
+  }
   // which part each letter belongs to (seams and the outline work between parts)
-  const kind = (ch) => ('HGh'.includes(ch) ? 0 : 'SLstezmpqw'.includes(ch) ? 1 : 'DFd'.includes(ch) ? 3 : 2);
+  const kind = (ch) => ('HGh'.includes(ch) ? 0 : 'SLstezimnpqw'.includes(ch) ? 1 : 'DFd'.includes(ch) ? 3 : 2);
   const ids = [0, 1, 2, 3].map(() => { B.next('flat'); B.meta[B.part].noShade = true; return B.part; });
   let x0 = 99, x1 = -99, y0 = 99, y1 = -99; for (const k of g.keys()) { const [x, y] = k.split(',').map(Number); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
-  const a = Math.abs(ang) < 9 ? 0 : ang * R, cs = Math.cos(a), sn = Math.sin(a), [ax, ay] = ANCHOR, r = Math.hypot(Math.max(ax - x0, x1 + 1 - ax), Math.max(ay - y0, y1 + 1 - ay)) + 1;
+  const ax = ANCHOR[0] * 2, ay = ANCHOR[1] * 2, a = Math.abs(ang) < 9 ? 0 : ang * R, cs = Math.cos(a), sn = Math.sin(a), r = Math.hypot(Math.max(ax - x0, x1 + 1 - ax), Math.max(ay - y0, y1 + 1 - ay)) + 1;
   const cx = Math.round(c[0]), cy = Math.round(c[1]);
   for (let y = Math.floor(cy - r); y <= cy + r; y++) for (let x = Math.floor(cx - r); x <= cx + r; x++) {
     const dx = x + 0.5 - cx, dy = y + 0.5 - cy, u = Math.floor(dx * cs + dy * sn + ax), v = Math.floor(-dx * sn + dy * cs + ay), ch = g.get(u + ',' + v);
@@ -417,11 +441,11 @@ export function frameCanvas(L, anim, i) { const px = drawFrame(L, ANIMS[anim][i]
 // a single still (for menus): a square around the figure, at its own pixels
 export function stillCanvas(L, anim = 'stand', i = 0) {
   const px = drawFrame(L, ANIMS[anim][i].o), c = document.createElement('canvas'); c.width = FW; c.height = FH; c.getContext('2d').putImageData(new ImageData(px, FW, FH), 0, 0);
-  const n = 62, o = document.createElement('canvas'); o.width = o.height = n; o.getContext('2d').drawImage(c, OX - n / 2, OY + 6 - n, n, n, 0, 0, n, n); return o;
+  const n = 124, o = document.createElement('canvas'); o.width = o.height = n; o.getContext('2d').drawImage(c, OX - n / 2, OY + 6 - n, n, n, 0, 0, n, n); return o;
 }
 // a head-and-shoulders crop for dialogue
 export function portrait(L) {
   const px = drawFrame(L, ANIMS.stand[0].o), hc = lastHead, c = document.createElement('canvas'); c.width = FW; c.height = FH; c.getContext('2d').putImageData(new ImageData(px, FW, FH), 0, 0);
-  const w = 26, h = 24, o = document.createElement('canvas'); o.width = w; o.height = h;
-  o.getContext('2d').drawImage(c, Math.round(hc[0] - 13), Math.round(hc[1] - 20), w, h, 0, 0, w, h); return o;
+  const w = 52, h = 48, o = document.createElement('canvas'); o.width = w; o.height = h;
+  o.getContext('2d').drawImage(c, Math.round(hc[0] - 26), Math.round(hc[1] - 40), w, h, 0, 0, w, h); return o;
 }
